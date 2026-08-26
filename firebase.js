@@ -9,16 +9,16 @@ import {
   getDatabase, ref, get, set, push, update, remove, onValue
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-database.js";
 
-// Тот же проект, что и в предыдущих версиях — данные (студии/фильмы/юзеры) сохраняются.
+// Новый Firebase-проект пользователя (akur-3bd63)
 export const firebaseConfig = {
-  apiKey: "AIzaSyBPwpR81prWq4_Ef1KX1T_uA4WsgyFMR8k",
-  authDomain: "akur-tv.firebaseapp.com",
-  databaseURL: "https://akur-tv-default-rtdb.firebaseio.com",
-  projectId: "akur-tv",
-  storageBucket: "akur-tv.firebasestorage.app",
-  messagingSenderId: "260087189248",
-  appId: "1:260087189248:web:2230651bb99a274bd86de5",
-  measurementId: "G-GJHMDS0KM7"
+  apiKey: "AIzaSyDCVNDzesdBV3dNuqU8LfbKcKLImufx7cQ",
+  authDomain: "akur-3bd63.firebaseapp.com",
+  databaseURL: "https://akur-3bd63-default-rtdb.firebaseio.com",
+  projectId: "akur-3bd63",
+  storageBucket: "akur-3bd63.firebasestorage.app",
+  messagingSenderId: "909845477878",
+  appId: "1:909845477878:web:da831d733fda4f1f4cefd7",
+  measurementId: "G-Z10ZJS0Z5L"
 };
 
 export const app = initializeApp(firebaseConfig);
