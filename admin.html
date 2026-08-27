@@ -948,9 +948,16 @@ function importLog(msg, cls){
 
 function parseImportList(raw){
   return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => {
-    const m = line.match(/^(.+?)(?:\s*\((\d{4})\))?\s*:\s*(\S+)$/);
-    if (!m) return null;
-    return { query: m[1].trim(), year: m[2] || null, videoUrl: m[3].trim() };
+    // ищем ссылку где угодно в строке — независимо от того, каким разделителем (":", "-", пробел) её отделили
+    const urlMatch = line.match(/https?:\/\/\S+/);
+    if (!urlMatch) return null;
+    const videoUrl = urlMatch[0].replace(/[),.;:]+$/, "");
+    let label = line.slice(0, urlMatch.index).trim().replace(/[:\-–—]+$/, "").trim();
+    let year = null;
+    const yearMatch = label.match(/\((\d{4})\)\s*$/);
+    if (yearMatch) { year = yearMatch[1]; label = label.slice(0, yearMatch.index).trim(); }
+    if (!label) return null;
+    return { query: label, year, videoUrl };
   }).filter(Boolean);
 }
 
@@ -973,7 +980,9 @@ $("#import-start-btn").addEventListener("click", async () => {
   for (const item of items){
     importLog(`🔍 Ищу «${item.query}»${item.year ? " ("+item.year+")" : ""}…`);
     try {
-      const search = await tmdbFetch("/search/movie", { query: item.query, language: "ru-RU", year: item.year || "" });
+      const searchParams = { query: item.query, language: "ru-RU" };
+      if (item.year) searchParams.year = item.year;
+      const search = await tmdbFetch("/search/movie", searchParams);
       const result = (search.results || [])[0];
       if (!result){ importLog(`  ❌ не найдено на TMDB — добавьте вручную`, "#ff8a95"); failed++; continue; }
 
@@ -990,8 +999,9 @@ $("#import-start-btn").addEventListener("click", async () => {
         const key = normalizeName(companyName);
         if (studioByName[key]) studioId = studioByName[key];
         else {
-          const res = await set(push(ref(db, "studios")), { name: companyName, createdAt: Date.now() });
-          studioId = res.key; studioByName[key] = studioId;
+          const newStudioRef = push(ref(db, "studios"));
+          await set(newStudioRef, { name: companyName, createdAt: Date.now() });
+          studioId = newStudioRef.key; studioByName[key] = studioId;
           importLog(`  ➕ создана новая студия «${companyName}»`, "#7cf0ab");
         }
       }
@@ -1009,8 +1019,9 @@ $("#import-start-btn").addEventListener("click", async () => {
         const engName = await resolveEnglishActorName(person);
         const key = normalizeName(engName);
         if (actorByName[key]) { actorIds.push(actorByName[key]); continue; }
-        const res = await set(push(ref(db, "actors")), { name: engName, createdAt: Date.now() });
-        actorByName[key] = res.key; actorIds.push(res.key);
+        const newActorRef = push(ref(db, "actors"));
+        await set(newActorRef, { name: engName, createdAt: Date.now() });
+        actorByName[key] = newActorRef.key; actorIds.push(newActorRef.key);
       }
 
       const year = (details.release_date || "").slice(0,4);
@@ -1031,7 +1042,8 @@ $("#import-start-btn").addEventListener("click", async () => {
         ratingSum: 0, ratingCount: 0, rating: 0,
         createdAt: Date.now()
       };
-      const savedRef = await set(push(ref(db, "titles")), titleObj);
+      const savedRef = push(ref(db, "titles"));
+      await set(savedRef, titleObj);
       movies[savedRef.key] = titleObj;
       existingTmdbIds.add(result.id);
       ok++;
