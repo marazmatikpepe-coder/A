@@ -49,6 +49,9 @@
   .checkbox-row input{width:auto;}
   .checkbox-row label{margin:0; text-transform:none; font-weight:600; color:var(--text); font-size:13.5px;}
   .chip-picker{display:flex; flex-wrap:wrap; gap:7px; max-height:140px; overflow-y:auto; padding:10px; background:#0d0d10; border:1.5px solid var(--line); border-radius:9px;}
+  .bulk-select-row{display:flex; gap:8px; margin-top:8px; align-items:flex-start;}
+  .bulk-select-row textarea{min-height:44px; font-size:12.5px;}
+  .icon-btn.wide{padding:10px 14px; white-space:nowrap; align-self:stretch;}
   .chip{padding:6px 12px; border-radius:20px; border:1.5px solid var(--line); font-size:12.5px; cursor:pointer; color:var(--muted); font-weight:600; transition:.15s; user-select:none;}
   .chip.selected{background:var(--accent); border-color:var(--accent); color:#fff;}
   .chip:hover{border-color:#3a3a42;}
@@ -128,8 +131,17 @@
           <button class="submit" type="submit">Добавить актёра</button>
           <div class="msg" id="actor-msg"></div>
         </form>
+        <div class="episodes-box">
+          <h3>Массовое добавление (по одному имени на строку)</h3>
+          <div class="field">
+            <textarea id="actors-bulk" placeholder="Иванов Иван&#10;Петров Петр&#10;Сидорова Анна" style="min-height:160px;"></textarea>
+          </div>
+          <div class="checkbox-row"><input type="checkbox" id="actors-bulk-skip-dupes" checked><label for="actors-bulk-skip-dupes">Пропускать уже существующие имена</label></div>
+          <button class="submit" type="button" id="actors-bulk-btn">Добавить всех разом</button>
+          <div class="msg" id="actors-bulk-msg"></div>
+        </div>
       </div>
-      <div class="panel"><h2>Все актёры</h2><div class="list" id="actors-list"></div></div>
+      <div class="panel"><h2>Все актёры <span id="actors-count" style="color:var(--muted); font-weight:600; font-size:12px;"></span></h2><div class="list" id="actors-list"></div></div>
     </div>
 
     <!-- ФИЛЬМЫ -->
@@ -150,7 +162,15 @@
           <div class="field"><label>Описание</label><textarea id="movie-desc"></textarea></div>
           <div class="field"><label>Ссылка на постер (URL)</label><input type="url" id="movie-poster" required></div>
           <div class="field"><label>Ссылка на видео (VK Видео / YouTube)</label><input type="url" id="movie-video" required></div>
-          <div class="field"><label>Актёры</label><div class="chip-picker" id="movie-actors"></div></div>
+          <div class="field">
+            <label>Актёры</label>
+            <div class="chip-picker" id="movie-actors"></div>
+            <div class="bulk-select-row">
+              <textarea id="movie-actors-bulk" placeholder="Вставьте список актёров (по одному имени на строку или через запятую) — они найдутся среди уже добавленных и выберутся сами"></textarea>
+              <button type="button" class="icon-btn wide" id="movie-actors-bulk-btn">Найти и выбрать</button>
+            </div>
+            <div class="msg" id="movie-actors-bulk-msg"></div>
+          </div>
           <div class="checkbox-row"><input type="checkbox" id="movie-kids"><label for="movie-kids">👶 Детский контент</label></div>
           <button class="submit" type="submit">Добавить фильм</button>
           <div class="msg" id="movie-msg"></div>
@@ -173,7 +193,15 @@
           <div class="field"><label>Описание</label><textarea id="series-desc"></textarea></div>
           <div class="field"><label>Лого / постер (URL)</label><input type="url" id="series-poster" required></div>
           <div class="field"><label>Жанры (до 5)</label><div class="chip-picker" id="series-genres"></div></div>
-          <div class="field"><label>Актёры</label><div class="chip-picker" id="series-actors"></div></div>
+          <div class="field">
+            <label>Актёры</label>
+            <div class="chip-picker" id="series-actors"></div>
+            <div class="bulk-select-row">
+              <textarea id="series-actors-bulk" placeholder="Вставьте список актёров (по одному имени на строку или через запятую) — они найдутся среди уже добавленных и выберутся сами"></textarea>
+              <button type="button" class="icon-btn wide" id="series-actors-bulk-btn">Найти и выбрать</button>
+            </div>
+            <div class="msg" id="series-actors-bulk-msg"></div>
+          </div>
           <div class="checkbox-row"><input type="checkbox" id="series-kids"><label for="series-kids">👶 Детский контент</label></div>
           <button class="submit" type="submit">Добавить сериал</button>
           <div class="msg" id="series-msg"></div>
@@ -236,7 +264,7 @@
 
 <script type="module">
 import {
-  auth, db, ref, get, set, push, remove, onAuthStateChanged,
+  auth, db, ref, get, set, push, update, remove, onAuthStateChanged,
   GENRES, formatTime, timeToSeconds
 } from "./firebase-config.js";
 
@@ -327,13 +355,55 @@ function renderStudioSelects(){
   $("#series-studio").innerHTML = opts;
 }
 
+// ---------- ВСТАВИТЬ СПИСОК АКТЁРОВ И АВТО-ВЫБРАТЬ ИХ ДЛЯ ФИЛЬМА/СЕРИАЛА ----------
+function normalizeName(s){ return (s||"").trim().toLowerCase().replace(/\s+/g," "); }
+
+function bulkSelectActors(rawText, selectedSet, chipContainerSelector, msgEl){
+  // разбиваем и по строкам, и по запятым — на случай если вставили в одну строку через запятую
+  const names = rawText.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+  if (!names.length){ showMsg(msgEl, "Список пуст", false); return; }
+
+  const byName = {};
+  Object.entries(actors).forEach(([id, a]) => { byName[normalizeName(a.name)] = id; });
+
+  const found = [], notFound = [];
+  names.forEach(name => {
+    const id = byName[normalizeName(name)];
+    if (id) { selectedSet.add(id); found.push(name); }
+    else notFound.push(name);
+  });
+
+  // отмечаем найденные чипы как выбранные
+  const box = $(chipContainerSelector);
+  box.querySelectorAll(".chip").forEach(chip => {
+    const id = chip.dataset.actorId;
+    if (id && selectedSet.has(id)) chip.classList.add("selected");
+  });
+
+  if (notFound.length){
+    showMsg(msgEl, `✅ Найдено и выбрано: ${found.length}. Не найдено в базе (добавьте сначала во вкладке «Актёры»): ${notFound.join(", ")}`, false);
+  } else {
+    showMsg(msgEl, `✅ Найдено и выбрано: ${found.length} актёров`);
+  }
+}
+
+$("#movie-actors-bulk-btn").addEventListener("click", () => {
+  bulkSelectActors($("#movie-actors-bulk").value, selectedMovieActors, "#movie-actors", $("#movie-actors-bulk-msg"));
+  $("#movie-actors-bulk").value = "";
+});
+$("#series-actors-bulk-btn").addEventListener("click", () => {
+  bulkSelectActors($("#series-actors-bulk").value, selectedSeriesActors, "#series-actors", $("#series-actors-bulk-msg"));
+  $("#series-actors-bulk").value = "";
+});
+
 function renderActorPickers(){
   [["#movie-actors", selectedMovieActors], ["#series-actors", selectedSeriesActors]].forEach(([sel, set]) => {
     const box = $(sel);
     box.innerHTML = Object.keys(actors).length ? "" : `<span style="color:var(--muted); font-size:12.5px;">Сначала добавьте актёров</span>`;
     Object.entries(actors).forEach(([id, a]) => {
       const chip = document.createElement("div");
-      chip.className = "chip"; chip.textContent = a.name;
+      chip.className = "chip" + (set.has(id) ? " selected" : ""); chip.textContent = a.name;
+      chip.dataset.actorId = id;
       chip.onclick = () => { set.has(id) ? set.delete(id) : set.add(id); chip.classList.toggle("selected"); };
       box.appendChild(chip);
     });
@@ -374,6 +444,7 @@ function renderStudiosList(){
 function renderActorsList(){
   const box = $("#actors-list");
   const entries = Object.entries(actors);
+  $("#actors-count").textContent = entries.length ? `(${entries.length})` : "";
   box.innerHTML = entries.length ? "" : `<div class="empty">Пока нет актёров</div>`;
   entries.forEach(([id, a]) => {
     box.insertAdjacentHTML("beforeend", `
@@ -500,6 +571,49 @@ $("#form-actor").addEventListener("submit", async (e) => {
   await set(push(ref(db, "actors")), { name, createdAt: Date.now() });
   $("#form-actor").reset();
   showMsg($("#actor-msg"), "✅ Актёр добавлен");
+  await loadAll();
+});
+
+// ---------- МАССОВОЕ ДОБАВЛЕНИЕ АКТЁРОВ ----------
+$("#actors-bulk-btn").addEventListener("click", async () => {
+  const raw = $("#actors-bulk").value;
+  const skipDupes = $("#actors-bulk-skip-dupes").checked;
+  // разбиваем по строкам, чистим пробелы, выкидываем пустые
+  let names = raw.split("\n").map(s => s.trim()).filter(Boolean);
+  // убираем дубли внутри самого списка (без учёта регистра)
+  const seen = new Set();
+  names = names.filter(n => {
+    const key = n.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  if (!names.length) { showMsg($("#actors-bulk-msg"), "Список пуст", false); return; }
+
+  let skipped = 0;
+  if (skipDupes) {
+    const existing = new Set(Object.values(actors).map(a => (a.name||"").trim().toLowerCase()));
+    const before = names.length;
+    names = names.filter(n => !existing.has(n.toLowerCase()));
+    skipped = before - names.length;
+  }
+
+  if (!names.length) { showMsg($("#actors-bulk-msg"), `Все ${skipped} имён уже есть в базе — новых не добавлено`, false); return; }
+
+  const btn = $("#actors-bulk-btn");
+  btn.disabled = true; btn.textContent = "Добавляем…";
+
+  // формируем один multi-path update — это один запрос к базе, а не N запросов
+  const updates = {};
+  const now = Date.now();
+  names.forEach(name => {
+    const newRef = push(ref(db, "actors"));
+    updates[`actors/${newRef.key}`] = { name, createdAt: now };
+  });
+  await update(ref(db), updates);
+
+  btn.disabled = false; btn.textContent = "Добавить всех разом";
+  $("#actors-bulk").value = "";
+  showMsg($("#actors-bulk-msg"), `✅ Добавлено ${names.length} актёров` + (skipped ? ` (пропущено дублей: ${skipped})` : ""));
   await loadAll();
 });
 
