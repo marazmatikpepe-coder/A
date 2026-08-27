@@ -306,10 +306,15 @@ VK Video: https://vk.com/video-12345_67890
       <div class="panel" style="grid-column:1/-1; margin-top:26px; border-color:rgba(214,52,71,.4);">
         <h2>🔄 Пакетная загрузка постеров на ImgBB</h2>
         <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
-          Если у вас есть список уже импортированных фильмов с постерами от TMDB, которые не отображаются из-за региональных ограничений,
-          вставьте их TMDB ID ниже (по одному на строку). Постеры будут загружены на ImgBB и обновлены в базе.
+          Вставьте список фильмов по одному на строку в любом из форматов:<br>
+          • Просто название: <b>Матрица</b><br>
+          • Название с годом и ссылкой: <b>Матрица(1999) https://vk.com/video...</b><br>
+          Постеры будут найдены через TMDB, загружены на ImgBB и обновлены в базе.
         </p>
-        <div class="field"><textarea id="tmdb-ids-list" placeholder="12345&#10;67890&#10;11223" style="min-height:180px;"></textarea></div>
+        <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:14px; white-space:pre-wrap;">Матрица
+Дюна(2021) https://vk.com/video-1_1
+Интерстеллар (2014): https://vk.com/video-2_2</pre>
+        <div class="field"><textarea id="tmdb-ids-list" placeholder="Матрица&#10;Дюна(2021) https://vk.com/video...&#10;Интерстеллар (2014): https://vk.com/video..." style="min-height:180px;"></textarea></div>
         <button class="submit" type="button" id="upload-posters-btn">Загрузить постеры на ImgBB</button>
         <div class="msg" id="upload-posters-msg"></div>
         <div id="upload-posters-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
@@ -1115,8 +1120,8 @@ $("#import-start-btn").addEventListener("click", async () => {
 
 // ================= ПАКЕТНАЯ ЗАГРУЗКА ПОСТЕРОВ ДЛЯ СУЩЕСТВУЮЩИХ ФИЛЬМОВ =================
 $("#upload-posters-btn").addEventListener("click", async () => {
-  const rawIds = $("#tmdb-ids-list").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (!rawIds.length) { showMsg($("#upload-posters-msg"), "Список TMDB ID пуст", false); return; }
+  const rawLines = $("#tmdb-ids-list").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!rawLines.length) { showMsg($("#upload-posters-msg"), "Список фильмов пуст", false); return; }
   
   const btn = $("#upload-posters-btn");
   btn.disabled = true; btn.textContent = "Загружаем...";
@@ -1124,28 +1129,77 @@ $("#upload-posters-btn").addEventListener("click", async () => {
   
   let ok = 0, failed = 0;
   
-  for (const tmdbId of rawIds) {
+  for (const line of rawLines) {
     const logLine = (msg, cls) => {
-      const line = document.createElement("div");
-      if (cls) line.style.color = cls;
-      line.textContent = msg;
-      $("#upload-posters-log").appendChild(line);
+      const lineEl = document.createElement("div");
+      if (cls) lineEl.style.color = cls;
+      lineEl.textContent = msg;
+      $("#upload-posters-log").appendChild(lineEl);
       $("#upload-posters-log").scrollTop = $("#upload-posters-log").scrollHeight;
     };
     
-    logLine(`🔍 Фильм TMDB ID ${tmdbId}...`);
+    // Парсим строку: "Название(год) ссылка" или просто "Название"
+    let movieName = line;
+    let year = null;
+    
+    // Пробуем извлечь год из скобок
+    const yearMatch = line.match(/\((\d{4})\)/);
+    if (yearMatch) {
+      year = yearMatch[1];
+      movieName = line.replace(/\s*\(\d{4}\)/g, '').trim();
+    }
+    
+    // Убираем ссылку на VK если есть
+    movieName = movieName.replace(/https?:\/\/\S+/g, '').replace(/:\s*$/, '').trim();
+    
+    if (!movieName) {
+      logLine(`⚠️ Пустая строка — пропускаем`, "#e8b74b");
+      continue;
+    }
+    
+    logLine(`🔍 Поиск фильма: "${movieName}"${year ? ` (${year})` : ''}...`);
     try {
-      // Ищем фильм в базе по tmdbId
-      const movieEntry = Object.entries(movies).find(([key, m]) => m.tmdbId == tmdbId);
+      // Ищем фильм в базе по названию
+      const movieEntry = Object.entries(movies).find(([key, m]) => {
+        const baseName = m.title.toLowerCase().replace(/\s*\(\d{4}\)/g, '').trim();
+        const searchName = movieName.toLowerCase();
+        return baseName === searchName || m.title.includes(movieName) || movieName.includes(m.title);
+      });
+      
       if (!movieEntry) {
-        logLine(`  ❌ Фильм с TMDB ID ${tmdbId} не найден в базе`, "#ff8a95");
+        logLine(`  ❌ Фильм "${movieName}" не найден в базе`, "#ff8a95");
         failed++;
         continue;
       }
       
       const [movieKey, movie] = movieEntry;
+      let tmdbId = movie.tmdbId;
+      
+      if (!tmdbId) {
+        logLine(`  ⚠️ У фильма нет TMDB ID — ищем по названию...`, "#e8b74b");
+        const searchParams = new URLSearchParams({ query: movieName, language: "ru-RU" });
+        if (year) searchParams.set("year", year);
+        const search = await tmdbFetch("/search/movie", searchParams);
+        
+        if (!search.results || search.results.length === 0) {
+          logLine(`  ❌ Не найдено в TMDB`, "#ff8a95");
+          failed++;
+          continue;
+        }
+        
+        let result = search.results[0];
+        if (year) {
+          const exactMatch = search.results.find(r => r.release_date && r.release_date.startsWith(year));
+          if (exactMatch) result = exactMatch;
+        }
+        
+        await update(ref(db, `titles/${movieKey}`), { tmdbId: result.id });
+        movies[movieKey].tmdbId = result.id;
+        tmdbId = result.id;
+        logLine(`  ✅ Найден TMDB ID: ${result.id}`, "#7cf0ab");
+      }
+      
       if (!movie.poster || movie.poster.includes("image.tmdb.org")) {
-        // Получаем данные из TMDB
         const details = await tmdbFetch(`/movie/${tmdbId}`, {});
         if (!details.poster_path) {
           logLine(`  ⚠️ У фильма нет постера на TMDB`, "#e8b74b");
@@ -1158,7 +1212,6 @@ $("#upload-posters-btn").addEventListener("click", async () => {
         const imgbbUrl = await uploadToImgBB(tmdbPosterUrl);
         
         if (imgbbUrl) {
-          // Обновляем фильм в базе
           await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
           movies[movieKey].poster = imgbbUrl;
           logLine(`  ✅ Постер обновлён: ${imgbbUrl}`, "#7cf0ab");
@@ -1168,8 +1221,24 @@ $("#upload-posters-btn").addEventListener("click", async () => {
           failed++;
         }
       } else {
-        logLine(`  ℹ️ У фильма уже есть постер не с TMDB — пропускаем`, "#e8b74b");
-        ok++;
+        logLine(`  ℹ️ У фильма уже есть постер — проверяем, загружен ли на ImgBB...`, "#e8b74b");
+        if (movie.poster.includes("ibb.co") || movie.poster.includes("i.ibb.co")) {
+          logLine(`  ✅ Постер уже на ImgBB — пропускаем`, "#7cf0ab");
+          ok++;
+        } else {
+          logLine(`  📤 Загрузка существующего постера на ImgBB...`, "#e8b74b");
+          const imgbbUrl = await uploadToImgBB(movie.poster);
+          
+          if (imgbbUrl) {
+            await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
+            movies[movieKey].poster = imgbbUrl;
+            logLine(`  ✅ Постер обновлён: ${imgbbUrl}`, "#7cf0ab");
+            ok++;
+          } else {
+            logLine(`  ❌ Не удалось загрузить на ImgBB`, "#ff8a95");
+            failed++;
+          }
+        }
       }
     } catch (err) {
       logLine(`  ❌ Ошибка: ${err.message}`, "#ff8a95");
