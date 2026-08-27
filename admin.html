@@ -287,7 +287,8 @@ VK Video: https://vk.com/video-12345_67890
         <h2>🚀 Массовый импорт фильмов из TMDB</h2>
         <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
           Вставьте список фильмов — по одному на строку, формат <b>Название: ссылка_на_VK</b> (год в скобках необязателен, помогает найти точное совпадение).
-          Название, описание, жанр, год, хронометраж, постер, студия и актёры подтянутся из TMDB автоматически.
+          Название, описание, жанр, год, хронометраж, студия и актёры подтянутся из TMDB автоматически.
+          Постер будет автоматически загружен на ImgBB для обхода региональных ограничений.
           Актёры и студии сохраняются на английском / как есть в оригинале — переводить их можно будет отдельно позже.
           Всё остальное (описание, жанр) — на русском.
         </p>
@@ -299,6 +300,19 @@ VK Video: https://vk.com/video-12345_67890
         <button class="submit" type="button" id="import-start-btn">Начать импорт</button>
         <div class="msg" id="import-summary-msg"></div>
         <div id="import-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
+      </div>
+      
+      <!-- Пакетная загрузка постеров для существующих фильмов -->
+      <div class="panel" style="grid-column:1/-1; margin-top:26px; border-color:rgba(214,52,71,.4);">
+        <h2>🔄 Пакетная загрузка постеров на ImgBB</h2>
+        <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
+          Если у вас есть список уже импортированных фильмов с постерами от TMDB, которые не отображаются из-за региональных ограничений,
+          вставьте их TMDB ID ниже (по одному на строку). Постеры будут загружены на ImgBB и обновлены в базе.
+        </p>
+        <div class="field"><textarea id="tmdb-ids-list" placeholder="12345&#10;67890&#10;11223" style="min-height:180px;"></textarea></div>
+        <button class="submit" type="button" id="upload-posters-btn">Загрузить постеры на ImgBB</button>
+        <div class="msg" id="upload-posters-msg"></div>
+        <div id="upload-posters-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
       </div>
     </div>
 
@@ -895,6 +909,30 @@ updateEpisodePreview();
 // v3-ключ TMDB предназначен для использования прямо в клиентских приложениях (публичный, не секретный).
 const TMDB_KEY = "98cbd519b7ff20634b5c93328d5e77f3";
 const TMDB_IMG = "https://image.tmdb.org/t/p/w780";
+const IMGBB_API_KEY = "d8a9dad272290e9bd78173da55a97d77";
+
+async function uploadToImgBB(imageUrl){
+  if (!imageUrl) return null;
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const formData = new FormData();
+    formData.append("image", blob, "poster.jpg");
+    formData.append("key", IMGBB_API_KEY);
+    
+    const uploadRes = await fetch("https://api.imgbb.com/1/upload", {
+      method: "POST",
+      body: formData
+    });
+    
+    if (!uploadRes.ok) throw new Error(`ImgBB ${uploadRes.status}`);
+    const data = await uploadRes.json();
+    return data.data?.url || data.image?.url || null;
+  } catch (err) {
+    console.error("Ошибка загрузки на ImgBB:", err);
+    return null;
+  }
+}
 
 const TMDB_GENRE_MAP = {
   "боевик": "Боевик", "приключения": "Приключения", "мультфильм": "Мультфильм",
@@ -1025,6 +1063,22 @@ $("#import-start-btn").addEventListener("click", async () => {
       }
 
       const year = (details.release_date || "").slice(0,4);
+      
+      // Загружаем постер на ImgBB если есть poster_path
+      let posterUrl = "";
+      if (details.poster_path) {
+        const tmdbPosterUrl = TMDB_IMG + details.poster_path;
+        importLog(`  📤 Загрузка постера на ImgBB...`, "#e8b74b");
+        const imgbbUrl = await uploadToImgBB(tmdbPosterUrl);
+        if (imgbbUrl) {
+          posterUrl = imgbbUrl;
+          importLog(`  ✅ Постер загружен: ${imgbbUrl}`, "#7cf0ab");
+        } else {
+          posterUrl = tmdbPosterUrl;
+          importLog(`  ⚠️ Не удалось загрузить на ImgBB, используем TMDB URL`, "#ff8a95");
+        }
+      }
+      
       const titleObj = {
         type: "movie",
         title: details.title,
@@ -1034,7 +1088,7 @@ $("#import-start-btn").addEventListener("click", async () => {
         year: year ? Number(year) : null,
         duration: details.runtime || 0,
         description: details.overview || "",
-        poster: details.poster_path ? (TMDB_IMG + details.poster_path) : "",
+        poster: posterUrl,
         videoUrl: item.videoUrl,
         actorIds,
         forKids: genre === "Семейный" || genre === "Мультфильм" || genre === "Аниме",
@@ -1047,7 +1101,7 @@ $("#import-start-btn").addEventListener("click", async () => {
       movies[savedRef.key] = titleObj;
       existingTmdbIds.add(result.id);
       ok++;
-      importLog(`  ✅ добавлено: «${titleObj.title}» (${titleObj.year || "?"}) · ${genre} · ${actorIds.length} актёров${!titleObj.poster ? " · ⚠️ без постера" : ""}`, "#7cf0ab");
+      importLog(`  ✅ добавлено: «${titleObj.title}» (${titleObj.year || "?"}) · ${genre} · ${actorIds.length} актёров`, "#7cf0ab");
     } catch (err){
       importLog(`  ❌ ошибка: ${err.message}`, "#ff8a95");
       failed++;
@@ -1056,6 +1110,75 @@ $("#import-start-btn").addEventListener("click", async () => {
 
   btn.disabled = false; btn.textContent = "Начать импорт";
   showMsg($("#import-summary-msg"), `Готово: добавлено ${ok}, пропущено ${skipped}, не найдено/ошибок ${failed}`, failed === 0);
+  await loadAll();
+});
+
+// ================= ПАКЕТНАЯ ЗАГРУЗКА ПОСТЕРОВ ДЛЯ СУЩЕСТВУЮЩИХ ФИЛЬМОВ =================
+$("#upload-posters-btn").addEventListener("click", async () => {
+  const rawIds = $("#tmdb-ids-list").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!rawIds.length) { showMsg($("#upload-posters-msg"), "Список TMDB ID пуст", false); return; }
+  
+  const btn = $("#upload-posters-btn");
+  btn.disabled = true; btn.textContent = "Загружаем...";
+  $("#upload-posters-log").innerHTML = ""; $("#upload-posters-log").style.display = "block";
+  
+  let ok = 0, failed = 0;
+  
+  for (const tmdbId of rawIds) {
+    const logLine = (msg, cls) => {
+      const line = document.createElement("div");
+      if (cls) line.style.color = cls;
+      line.textContent = msg;
+      $("#upload-posters-log").appendChild(line);
+      $("#upload-posters-log").scrollTop = $("#upload-posters-log").scrollHeight;
+    };
+    
+    logLine(`🔍 Фильм TMDB ID ${tmdbId}...`);
+    try {
+      // Ищем фильм в базе по tmdbId
+      const movieEntry = Object.entries(movies).find(([key, m]) => m.tmdbId == tmdbId);
+      if (!movieEntry) {
+        logLine(`  ❌ Фильм с TMDB ID ${tmdbId} не найден в базе`, "#ff8a95");
+        failed++;
+        continue;
+      }
+      
+      const [movieKey, movie] = movieEntry;
+      if (!movie.poster || movie.poster.includes("image.tmdb.org")) {
+        // Получаем данные из TMDB
+        const details = await tmdbFetch(`/movie/${tmdbId}`, {});
+        if (!details.poster_path) {
+          logLine(`  ⚠️ У фильма нет постера на TMDB`, "#e8b74b");
+          failed++;
+          continue;
+        }
+        
+        const tmdbPosterUrl = TMDB_IMG + details.poster_path;
+        logLine(`  📤 Загрузка постера на ImgBB...`, "#e8b74b");
+        const imgbbUrl = await uploadToImgBB(tmdbPosterUrl);
+        
+        if (imgbbUrl) {
+          // Обновляем фильм в базе
+          await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
+          movies[movieKey].poster = imgbbUrl;
+          logLine(`  ✅ Постер обновлён: ${imgbbUrl}`, "#7cf0ab");
+          ok++;
+        } else {
+          logLine(`  ❌ Не удалось загрузить на ImgBB`, "#ff8a95");
+          failed++;
+        }
+      } else {
+        logLine(`  ℹ️ У фильма уже есть постер не с TMDB — пропускаем`, "#e8b74b");
+        ok++;
+      }
+    } catch (err) {
+      logLine(`  ❌ Ошибка: ${err.message}`, "#ff8a95");
+      failed++;
+    }
+  }
+  
+  btn.disabled = false; btn.textContent = "Загрузить постеры на ImgBB";
+  showMsg($("#upload-posters-msg"), `Готово: обновлено ${ok}, ошибок/пропусков ${failed}`, failed === 0);
   await loadAll();
 });
 </script>
