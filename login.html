@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Вход — AKUR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0c; --bg2:#111114; --panel:#15151a; --line:#232329;
+    --text:#f2f2f4; --muted:#8a8a92; --accent:#d63447; --accent2:#e8495c;
+    --ok:#2fbf71; --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    min-height:100vh; font-family:'Manrope',sans-serif; color:var(--text);
+    background:
+      radial-gradient(1100px 700px at 85% -10%, rgba(214,52,71,.16), transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, rgba(60,60,90,.18), transparent 60%),
+      var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .wrap{width:100%; max-width:420px;}
+  .brand{text-align:center; margin-bottom:28px;}
+  .brand .mark{
+    display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:26px; letter-spacing:.5px;
+  }
+  .brand .mark i{width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent2)); display:inline-block;}
+  .card{
+    background:linear-gradient(180deg, var(--panel), var(--bg2));
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:32px; box-shadow:0 30px 60px rgba(0,0,0,.45);
+  }
+  h1{font-size:20px; font-weight:800; margin-bottom:6px;}
+  p.sub{color:var(--muted); font-size:14px; margin-bottom:24px;}
+  .field{margin-bottom:14px;}
+  label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
+  input{
+    width:100%; padding:13px 14px; background:#0d0d10; border:1.5px solid var(--line);
+    border-radius:10px; color:var(--text); font-size:15px; font-family:inherit; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(214,52,71,.15);}
+  .btn{
+    width:100%; padding:14px; border:none; border-radius:10px; font-weight:700; font-size:15px;
+    cursor:pointer; transition:transform .12s, filter .15s; font-family:inherit;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; margin-top:6px;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent; color:var(--text); border:1.5px solid var(--line); margin-top:10px;}
+  .btn-ghost:hover{border-color:#3a3a42; background:#141417;}
+  .btn[disabled]{opacity:.55; cursor:not-allowed;}
+  .row-links{display:flex; justify-content:space-between; margin-top:16px; font-size:13px;}
+  .row-links a, .row-links span{color:var(--muted); cursor:pointer; text-decoration:none;}
+  .row-links a:hover, .row-links span:hover{color:var(--text);}
+  .divider{display:flex; align-items:center; gap:12px; margin:20px 0; color:var(--muted); font-size:12px;}
+  .divider::before, .divider::after{content:""; flex:1; height:1px; background:var(--line);}
+  .msg{margin-top:14px; font-size:13.5px; padding:10px 12px; border-radius:8px; display:none; line-height:1.4;}
+  .msg.err{background:rgba(214,52,71,.12); color:#ff8a95; border:1px solid rgba(214,52,71,.3); display:block;}
+  .msg.ok{background:rgba(47,191,113,.12); color:#7cf0ab; border:1px solid rgba(47,191,113,.3); display:block;}
+  .tabs{display:flex; background:#0d0d10; border:1px solid var(--line); border-radius:10px; padding:4px; margin-bottom:22px;}
+  .tab{flex:1; text-align:center; padding:9px; border-radius:8px; font-size:13.5px; font-weight:700; color:var(--muted); cursor:pointer; transition:.15s;}
+  .tab.active{background:var(--panel); color:var(--text); box-shadow:0 4px 12px rgba(0,0,0,.3);}
+  .view{display:none;}
+  .view.active{display:block;}
+  .back{display:block; text-align:center; margin-top:22px; color:var(--muted); font-size:13.5px; text-decoration:none;}
+  .back:hover{color:var(--text);}
+  .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5;}
+  @media (max-width:480px){ .card{padding:24px 20px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark"><i></i>AKUR</span></div>
+  <div class="card">
+
+    <!-- ВХОД / РЕГИСТРАЦИЯ -->
+    <div class="view active" id="view-auth">
+      <div class="tabs">
+        <div class="tab active" data-mode="login">Вход</div>
+        <div class="tab" data-mode="register">Регистрация</div>
+      </div>
+      <h1 id="auth-title">Рады видеть снова</h1>
+      <p class="sub" id="auth-sub">Войдите, чтобы продолжить просмотр</p>
+
+      <form id="auth-form" autocomplete="on">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <input type="password" id="password" placeholder="Минимум 6 символов" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" type="submit" id="submit-btn">Войти</button>
+      </form>
+
+      <div class="row-links">
+        <span id="forgot-link">Забыли пароль?</span>
+        <span id="guest-link">Продолжить без регистрации →</span>
+      </div>
+
+      <div class="msg" id="auth-msg"></div>
+    </div>
+
+    <!-- СБРОС ПАРОЛЯ -->
+    <div class="view" id="view-reset">
+      <h1>Восстановление пароля</h1>
+      <p class="sub">Укажите email — пришлём ссылку для сброса пароля</p>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="reset-email" placeholder="you@example.com">
+      </div>
+      <button class="btn btn-primary" id="reset-btn">Отправить письмо</button>
+      <p class="hint">Письмо придёт от Firebase (no-reply@akur-tv.firebaseapp.com). Перейдите по ссылке из письма, чтобы задать новый пароль — после этого возвращайтесь сюда и входите с новым паролем.</p>
+      <div class="msg" id="reset-msg"></div>
+      <a class="back" id="back-to-auth">← Назад ко входу</a>
+    </div>
+
+  </div>
+  <a class="back" href="index.html">← Продолжить без регистрации</a>
+</div>
+
+<script type="module">
+import {
+  auth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, signInAnonymously, db, ref, set, onAuthStateChanged
+} from "./firebase-config.js";
+
+const $ = s => document.querySelector(s);
+let mode = "login";
+
+// уже вошли — сразу на главную
+onAuthStateChanged(auth, (user) => {
+  if (user && !user.isAnonymous) window.location.href = "index.html";
+});
+
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  mode = t.dataset.mode;
+  const isLogin = mode === "login";
+  $("#auth-title").textContent = isLogin ? "Рады видеть снова" : "Создать аккаунт";
+  $("#auth-sub").textContent = isLogin ? "Войдите, чтобы продолжить просмотр" : "Это займёт меньше минуты";
+  $("#submit-btn").textContent = isLogin ? "Войти" : "Зарегистрироваться";
+  hideMsg($("#auth-msg"));
+}));
+
+function showMsg(el, text, ok=false){
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "err");
+}
+function hideMsg(el){ el.className = "msg"; el.textContent=""; }
+
+function friendlyError(err){
+  const map = {
+    "auth/email-already-in-use": "Этот email уже зарегистрирован",
+    "auth/invalid-email": "Некорректный email",
+    "auth/user-not-found": "Пользователь с таким email не найден",
+    "auth/wrong-password": "Неверный пароль",
+    "auth/invalid-credential": "Неверный email или пароль",
+    "auth/weak-password": "Пароль слишком простой (минимум 6 символов)",
+    "auth/too-many-requests": "Слишком много попыток. Попробуйте позже",
+  };
+  return map[err.code] || err.message;
+}
+
+$("#auth-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("#email").value.trim();
+  const password = $("#password").value;
+  const btn = $("#submit-btn");
+  if (password.length < 6){ showMsg($("#auth-msg"), "Пароль должен быть минимум 6 символов"); return; }
+  btn.disabled = true; btn.textContent = "Подождите…";
+  try{
+    if (mode === "login"){
+      await signInWithEmailAndPassword(auth, email, password);
+    } else {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await set(ref(db, `users/${cred.user.uid}`), {
+        email, createdAt: Date.now(), isAdmin: false
+      });
+    }
+    window.location.href = "index.html";
+  } catch(err){
+    showMsg($("#auth-msg"), friendlyError(err));
+    btn.disabled = false; btn.textContent = mode === "login" ? "Войти" : "Зарегистрироваться";
+  }
+});
+
+$("#guest-link").addEventListener("click", async () => {
+  try {
+    await signInAnonymously(auth);
+    window.location.href = "index.html";
+  } catch {
+    // если анонимный вход выключен в проекте — просто пускаем как неавторизованного гостя
+    window.location.href = "index.html";
+  }
+});
+
+$("#forgot-link").addEventListener("click", () => {
+  $("#view-auth").classList.remove("active");
+  $("#view-reset").classList.add("active");
+});
+$("#back-to-auth").addEventListener("click", () => {
+  $("#view-reset").classList.remove("active");
+  $("#view-auth").classList.add("active");
+});
+
+$("#reset-btn").addEventListener("click", async () => {
+  const email = $("#reset-email").value.trim();
+  if (!email){ showMsg($("#reset-msg"), "Введите email"); return; }
+  const btn = $("#reset-btn");
+  btn.disabled = true; btn.textContent = "Отправляем…";
+  try{
+    await sendPasswordResetEmail(auth, email);
+    showMsg($("#reset-msg"), "Письмо отправлено! Проверьте почту (и папку «Спам»).", true);
+  } catch(err){
+    showMsg($("#reset-msg"), friendlyError(err));
+  }
+  btn.disabled = false; btn.textContent = "Отправить письмо";
+});
+</script>
+</body>
+</html>
