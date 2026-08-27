@@ -155,6 +155,8 @@
         <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:12px; white-space:pre-wrap;">Название: Интерстеллар
 Студия: Paramount Pictures
 Жанр: Фантастика
+Год выхода: 2014
+Хронометраж: 169
 Описание: Группа исследователей отправляется через червоточину...
 VK Video: https://vk.com/video-12345_67890
 Актёры:
@@ -420,14 +422,28 @@ const PARSE_LABELS = {
   "название": "title", "наименование": "title",
   "студия": "studio",
   "жанр": "genre", "жанры": "genre",
+  "год выхода": "year", "год": "year",
+  "хронометраж": "duration", "хронометраж (мин)": "duration", "длительность": "duration", "продолжительность": "duration",
   "описание": "desc", "описание фильма": "desc",
   "vk video": "video", "видео": "video", "ссылка": "video", "ссылка на видео": "video", "vk": "video",
   "актеры": "actors", "актёры": "actors", "актёры в фильме": "actors"
 };
 function firstWord(s){ return (s || "").trim().split(/\s+/)[0] || ""; }
 
-function parseMovieBulkText(text){
-  const data = { title: "", studioRaw: "", genreRaw: "", descLines: [], video: "", actorLines: [] };
+// Чистим мусор от копирования из заметок/мессенджеров: markdown-ссылки вида
+// [видимый текст](мусорный href) превращаем просто в "видимый текст",
+// и убираем невидимый символ ￼ (object replacement character), который иногда
+// остаётся от вставленных изображений/вложений.
+function cleanPastedText(text){
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\uFFFC/g, "")
+    .replace(/\u200b/g, "");
+}
+
+function parseMovieBulkText(rawText){
+  const text = cleanPastedText(rawText);
+  const data = { title: "", studioRaw: "", genreRaw: "", year: "", duration: "", descLines: [], video: "", actorLines: [] };
   let mode = null;
   text.split(/\r?\n/).forEach(rawLine => {
     const line = rawLine.trim();
@@ -440,21 +456,26 @@ function parseMovieBulkText(text){
       if (key === "title") data.title = rest;
       else if (key === "studio") data.studioRaw = rest;
       else if (key === "genre") data.genreRaw = rest;
+      else if (key === "year") data.year = rest;
+      else if (key === "duration") data.duration = rest;
       else if (key === "desc" && rest) data.descLines.push(rest);
-      else if (key === "video") data.video = rest;
+      else if (key === "video") data.video = extractUrl(rest) || rest;
       else if (key === "actors" && rest) data.actorLines.push(rest);
     } else if (mode === "desc") data.descLines.push(line);
     else if (mode === "actors") data.actorLines.push(line);
-    else if (mode === "video" && !data.video) data.video = line;
+    else if (mode === "video" && !data.video) data.video = extractUrl(line) || line;
   });
   return data;
 }
+function extractUrl(s){ const m = (s||"").match(/https?:\/\/[^\s\]\)]+/); return m ? m[0] : ""; }
 
 function applyParsedMovie(data){
   const notes = [];
   if (data.title) $("#movie-title").value = data.title;
   if (data.descLines.length) $("#movie-desc").value = data.descLines.join("\n");
   if (data.video) $("#movie-video").value = data.video;
+  if (data.year){ const y = (data.year.match(/\d{4}/)||[])[0]; if (y) $("#movie-year").value = y; }
+  if (data.duration){ const d = (data.duration.match(/\d+/)||[])[0]; if (d) $("#movie-duration").value = d; }
 
   if (data.studioRaw){
     const fw = normalizeName(firstWord(data.studioRaw));
@@ -464,10 +485,15 @@ function applyParsedMovie(data){
     else notes.push(`студия «${data.studioRaw}» не найдена — выберите/добавьте вручную`);
   }
   if (data.genreRaw){
-    const fw = normalizeName(firstWord(data.genreRaw));
-    const match = GENRES.find(g => normalizeName(firstWord(g)) === fw) || GENRES.find(g => normalizeName(g).startsWith(fw));
+    // если указано несколько жанров через запятую ("Боевик, фантастика") — берём только первый,
+    // т.к. у фильма в базе один жанр
+    const primary = data.genreRaw.split(",")[0].trim();
+    const fw = normalizeName(firstWord(primary));
+    const match = GENRES.find(g => normalizeName(g) === normalizeName(primary))
+               || GENRES.find(g => normalizeName(firstWord(g)) === fw)
+               || GENRES.find(g => normalizeName(g).startsWith(fw));
     if (match) $("#movie-genre").value = match;
-    else notes.push(`жанр «${data.genreRaw}» не найден в списке — выберите вручную`);
+    else notes.push(`жанр «${primary}» не найден в списке — выберите вручную`);
   }
   if (data.actorLines.length){
     const { found, notFound } = matchAndSelectActorsCore(data.actorLines.join("\n"), selectedMovieActors, "#movie-actors");
@@ -480,7 +506,7 @@ function applyParsedMovie(data){
   }
   showMsg($("#movie-parse-msg"), notes.length
     ? "Поля заполнены. " + notes.join(" · ")
-    : "✅ Все поля успешно распознаны и заполнены. Осталось указать год, хронометраж и постер.", notes.length === 0);
+    : "✅ Все поля успешно распознаны и заполнены. Осталось указать постер.", notes.length === 0);
 }
 
 $("#movie-parse-btn").addEventListener("click", () => {
