@@ -106,6 +106,7 @@
       <div class="tab-btn" data-tab="movies">🎬 Фильмы</div>
       <div class="tab-btn" data-tab="series">📺 Сериалы</div>
       <div class="tab-btn" data-tab="seasons">📁 Сезоны и серии</div>
+      <div class="tab-btn" data-tab="import">🚀 Импорт TMDB</div>
     </div>
 
     <!-- СТУДИИ -->
@@ -278,6 +279,27 @@ VK Video: https://vk.com/video-12345_67890
       </div>
 
       <div class="panel" style="grid-column:1/-1;"><h2>Все сезоны</h2><div class="list" id="seasons-list"></div></div>
+    </div>
+
+    <!-- ИМПОРТ TMDB -->
+    <div class="tab-content" id="tab-import">
+      <div class="panel" style="grid-column:1/-1;">
+        <h2>🚀 Массовый импорт фильмов из TMDB</h2>
+        <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
+          Вставьте список фильмов — по одному на строку, формат <b>Название: ссылка_на_VK</b> (год в скобках необязателен, помогает найти точное совпадение).
+          Название, описание, жанр, год, хронометраж, постер, студия и актёры подтянутся из TMDB автоматически.
+          Актёры и студии сохраняются на английском / как есть в оригинале — переводить их можно будет отдельно позже.
+          Всё остальное (описание, жанр) — на русском.
+        </p>
+        <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:14px; white-space:pre-wrap;">Первый мститель: Противостояние (2016): https://vk.com/video-1_1
+Интерстеллар: https://vk.com/video-2_2
+Дюна: https://vk.com/video-3_3</pre>
+        <div class="field"><textarea id="import-list" placeholder="Название (Год): ссылка_на_вк" style="min-height:180px;"></textarea></div>
+        <div class="checkbox-row"><input type="checkbox" id="import-skip-existing" checked><label for="import-skip-existing">Пропускать фильмы, уже добавленные ранее (по TMDB ID)</label></div>
+        <button class="submit" type="button" id="import-start-btn">Начать импорт</button>
+        <div class="msg" id="import-summary-msg"></div>
+        <div id="import-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
+      </div>
     </div>
 
   </div>
@@ -868,6 +890,162 @@ $("#form-episode").addEventListener("submit", async (e) => {
   renderEpisodesList(seasonId);
 });
 updateEpisodePreview();
+
+// ================= МАССОВЫЙ ИМПОРТ ИЗ TMDB =================
+// v3-ключ TMDB предназначен для использования прямо в клиентских приложениях (публичный, не секретный).
+const TMDB_KEY = "98cbd519b7ff20634b5c93328d5e77f3";
+const TMDB_IMG = "https://image.tmdb.org/t/p/w780";
+
+const TMDB_GENRE_MAP = {
+  "боевик": "Боевик", "приключения": "Приключения", "мультфильм": "Мультфильм",
+  "комедия": "Комедия", "криминал": "Криминал", "документальный": "Документальный",
+  "драма": "Драма", "семейный": "Семейный", "фэнтези": "Фэнтези", "история": "Драма",
+  "ужасы": "Ужасы", "музыка": "Драма", "детектив": "Детектив", "мелодрама": "Мелодрама",
+  "фантастика": "Фантастика", "телевизионный фильм": "Драма", "триллер": "Триллер",
+  "военный": "Боевик", "вестерн": "Боевик"
+};
+
+function isLatinName(s){ return /^[\x00-\x7F\s.'\-]+$/.test(s || ""); }
+
+async function tmdbFetch(path, params){
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  url.searchParams.set("api_key", TMDB_KEY);
+  Object.entries(params||{}).forEach(([k,v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`TMDB ${res.status}`);
+  return res.json();
+}
+
+async function resolveEnglishActorName(person){
+  if (isLatinName(person.name)) return person.name;
+  try {
+    const data = await tmdbFetch(`/person/${person.id}`, {});
+    const latin = (data.also_known_as || []).find(n => isLatinName(n));
+    return latin || person.name;
+  } catch { return person.name; }
+}
+
+function pickLocalGenre(tmdbGenres){
+  for (const g of (tmdbGenres || [])) {
+    const key = (g.name || "").trim().toLowerCase();
+    if (TMDB_GENRE_MAP[key]) {
+      // аниме = мультфильм японского происхождения
+      return key === "мультфильм" ? null : TMDB_GENRE_MAP[key];
+    }
+  }
+  return null;
+}
+
+function importLog(msg, cls){
+  const box = $("#import-log");
+  box.style.display = "block";
+  const line = document.createElement("div");
+  if (cls) line.style.color = cls;
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function parseImportList(raw){
+  return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => {
+    const m = line.match(/^(.+?)(?:\s*\((\d{4})\))?\s*:\s*(\S+)$/);
+    if (!m) return null;
+    return { query: m[1].trim(), year: m[2] || null, videoUrl: m[3].trim() };
+  }).filter(Boolean);
+}
+
+$("#import-start-btn").addEventListener("click", async () => {
+  const items = parseImportList($("#import-list").value);
+  if (!items.length){ showMsg($("#import-summary-msg"), "Список пуст или формат не распознан (нужно «Название: ссылка»)", false); return; }
+
+  const btn = $("#import-start-btn");
+  btn.disabled = true; btn.textContent = "Импортируем…";
+  $("#import-log").innerHTML = ""; $("#import-log").style.display = "block";
+  const skipExisting = $("#import-skip-existing").checked;
+
+  // локальные копии, чтобы переиспользовать созданные внутри одного запуска студии/актёров
+  const studioByName = {}; Object.entries(studios).forEach(([id,s]) => studioByName[normalizeName(s.name)] = id);
+  const actorByName = {}; Object.entries(actors).forEach(([id,a]) => actorByName[normalizeName(a.name)] = id);
+  const existingTmdbIds = new Set(Object.values(movies).map(m => m.tmdbId).filter(Boolean));
+
+  let ok = 0, skipped = 0, failed = 0;
+
+  for (const item of items){
+    importLog(`🔍 Ищу «${item.query}»${item.year ? " ("+item.year+")" : ""}…`);
+    try {
+      const search = await tmdbFetch("/search/movie", { query: item.query, language: "ru-RU", year: item.year || "" });
+      const result = (search.results || [])[0];
+      if (!result){ importLog(`  ❌ не найдено на TMDB — добавьте вручную`, "#ff8a95"); failed++; continue; }
+
+      if (skipExisting && existingTmdbIds.has(result.id)){
+        importLog(`  ⚠️ уже есть в базе (TMDB ID ${result.id}) — пропущено`, "#e8b74b"); skipped++; continue;
+      }
+
+      const details = await tmdbFetch(`/movie/${result.id}`, { language: "ru-RU", append_to_response: "credits" });
+
+      // студия
+      let studioId = null;
+      const companyName = (details.production_companies || [])[0]?.name;
+      if (companyName){
+        const key = normalizeName(companyName);
+        if (studioByName[key]) studioId = studioByName[key];
+        else {
+          const res = await set(push(ref(db, "studios")), { name: companyName, createdAt: Date.now() });
+          studioId = res.key; studioByName[key] = studioId;
+          importLog(`  ➕ создана новая студия «${companyName}»`, "#7cf0ab");
+        }
+      }
+
+      // жанр
+      const isAnime = details.original_language === "ja" && (details.genres||[]).some(g => (g.name||"").toLowerCase() === "мультфильм");
+      let genre = isAnime ? "Аниме" : pickLocalGenre(details.genres);
+      if (!genre && (details.genres||[]).some(g => (g.name||"").toLowerCase() === "мультфильм")) genre = "Мультфильм";
+      if (!genre) genre = "Драма";
+
+      // актёры (первые 8 по титрам)
+      const cast = (details.credits?.cast || []).slice(0, 8);
+      const actorIds = [];
+      for (const person of cast){
+        const engName = await resolveEnglishActorName(person);
+        const key = normalizeName(engName);
+        if (actorByName[key]) { actorIds.push(actorByName[key]); continue; }
+        const res = await set(push(ref(db, "actors")), { name: engName, createdAt: Date.now() });
+        actorByName[key] = res.key; actorIds.push(res.key);
+      }
+
+      const year = (details.release_date || "").slice(0,4);
+      const titleObj = {
+        type: "movie",
+        title: details.title,
+        altTitle: details.original_title !== details.title ? details.original_title : null,
+        studioId,
+        genre,
+        year: year ? Number(year) : null,
+        duration: details.runtime || 0,
+        description: details.overview || "",
+        poster: details.poster_path ? (TMDB_IMG + details.poster_path) : "",
+        videoUrl: item.videoUrl,
+        actorIds,
+        forKids: genre === "Семейный" || genre === "Мультфильм" || genre === "Аниме",
+        tmdbId: result.id,
+        ratingSum: 0, ratingCount: 0, rating: 0,
+        createdAt: Date.now()
+      };
+      const savedRef = await set(push(ref(db, "titles")), titleObj);
+      movies[savedRef.key] = titleObj;
+      existingTmdbIds.add(result.id);
+      ok++;
+      importLog(`  ✅ добавлено: «${titleObj.title}» (${titleObj.year || "?"}) · ${genre} · ${actorIds.length} актёров${!titleObj.poster ? " · ⚠️ без постера" : ""}`, "#7cf0ab");
+    } catch (err){
+      importLog(`  ❌ ошибка: ${err.message}`, "#ff8a95");
+      failed++;
+    }
+  }
+
+  btn.disabled = false; btn.textContent = "Начать импорт";
+  showMsg($("#import-summary-msg"), `Готово: добавлено ${ok}, пропущено ${skipped}, не найдено/ошибок ${failed}`, failed === 0);
+  await loadAll();
+});
 </script>
 </body>
 </html>
