@@ -626,10 +626,20 @@ function renderMoviesList(){
           <div class="item-title">${escapeHtml(m.title)} ${m.forKids ? '<span class="badge badge-kids">Детям</span>' : ''}</div>
           <div class="item-meta">${escapeHtml(studios[m.studioId]?.name || "")} · ${m.year} · ${m.genre}</div>
         </div>
-        <button class="icon-btn" data-del="titles/${id}">Удалить</button>
+        <div style="display:flex;gap:8px;">
+          <button class="icon-btn" data-edit-movie="${id}" title="Редактировать">✏️</button>
+          <button class="icon-btn" data-del="titles/${id}">Удалить</button>
+        </div>
       </div>`);
   });
   bindDeletes();
+  // Bind edit buttons
+  box.querySelectorAll('[data-edit-movie]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const movieId = btn.getAttribute('data-edit-movie');
+      openEditMovieModal(movieId);
+    });
+  });
 }
 function renderSeriesList(){
   const box = $("#series-list");
@@ -779,6 +789,12 @@ $("#actors-bulk-btn").addEventListener("click", async () => {
 
 $("#form-movie").addEventListener("submit", async (e) => {
   e.preventDefault();
+  
+  // Если мы в режиме редактирования, используем новую логику
+  if (window.currentEditMovieId) {
+    return; // Обработка уже выполняется в переопределённой функции saveMovie
+  }
+  
   const studioId = $("#movie-studio").value;
   if (!studioId) { showMsg($("#movie-msg"), "Выберите студию", false); return; }
   const item = {
@@ -919,22 +935,17 @@ const IMGBB_API_KEY = "d8a9dad272290e9bd78173da55a97d77";
 async function uploadToImgBB(imageUrl){
   if (!imageUrl) return null;
   try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    const formData = new FormData();
-    formData.append("image", blob, "poster.jpg");
-    formData.append("key", IMGBB_API_KEY);
-    
-    const uploadRes = await fetch("https://api.imgbb.com/1/upload", {
+    const response = await fetch("proxy-upload.php", {
       method: "POST",
-      body: formData
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl })
     });
     
-    if (!uploadRes.ok) throw new Error(`ImgBB ${uploadRes.status}`);
-    const data = await uploadRes.json();
-    return data.data?.url || data.image?.url || null;
+    if (!response.ok) throw new Error(`Proxy ${response.status}`);
+    const data = await response.json();
+    return data.url || null;
   } catch (err) {
-    console.error("Ошибка загрузки на ImgBB:", err);
+    console.error("Ошибка загрузки на ImgBB через прокси:", err);
     return null;
   }
 }
@@ -953,10 +964,43 @@ function isLatinName(s){ return /^[\x00-\x7F\s.'\-]+$/.test(s || ""); }
 async function tmdbFetch(path, params){
   const url = new URL(`https://api.themoviedb.org/3${path}`);
   url.searchParams.set("api_key", TMDB_KEY);
+  // По умолчанию используем русский язык для всех запросов
+  if (!params.language && !url.searchParams.has('language')) {
+    url.searchParams.set("language", "ru-RU");
+  }
   Object.entries(params||{}).forEach(([k,v]) => url.searchParams.set(k, v));
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`TMDB ${res.status}`);
   return res.json();
+}
+
+// Функция для получения постера с русским языком
+async function getRussianPoster(tmdbId) {
+  try {
+    // Получаем изображения фильма
+    const imagesData = await tmdbFetch(`/movie/${tmdbId}/images`, {});
+    
+    // Ищем постеры с русским языком
+    const ruPosters = (imagesData.posters || []).filter(p => p.iso_639_1 === 'ru');
+    if (ruPosters.length > 0) {
+      // Сортируем по оценке и выбираем лучший
+      ruPosters.sort((a, b) => b.vote_average - a.vote_average);
+      return `https://image.tmdb.org/t/p/original${ruPosters[0].file_path}`;
+    }
+    
+    // Если русских нет, ищем постеры без языка (международные) или английские
+    const enPosters = (imagesData.posters || []).filter(p => !p.iso_639_1 || p.iso_639_1 === 'en');
+    if (enPosters.length > 0) {
+      enPosters.sort((a, b) => b.vote_average - a.vote_average);
+      return `https://image.tmdb.org/t/p/original${enPosters[0].file_path}`;
+    }
+    
+    // Если ничего не нашли, возвращаем null
+    return null;
+  } catch (e) {
+    console.error('Ошибка получения постера:', e);
+    return null;
+  }
 }
 
 async function resolveEnglishActorName(person){
@@ -1178,13 +1222,19 @@ $("#upload-posters-btn").addEventListener("click", async () => {
       if (!tmdbId) {
         logLine(`  ⚠️ У фильма нет TMDB ID — ищем по названию...`, "#e8b74b");
         const searchParams = new URLSearchParams({ query: movieName, language: "ru-RU" });
-        if (year) searchParams.set("year", year);
         const search = await tmdbFetch("/search/movie", searchParams);
         
         if (!search.results || search.results.length === 0) {
-          logLine(`  ❌ Не найдено в TMDB`, "#ff8a95");
-          failed++;
-          continue;
+          // Пробуем поиск на английском (транслитерация или оригинальное название)
+          logLine(`  ⚠️ Не найдено на русском, пробуем английский запрос...`, "#e8b74b");
+          const searchEn = await tmdbFetch("/search/movie", new URLSearchParams({ query: movieName, language: "en-US" }));
+          if (searchEn.results && searchEn.results.length > 0) {
+            Object.assign(search, searchEn);
+          } else {
+            logLine(`  ❌ Не найдено в TMDB`, "#ff8a95");
+            failed++;
+            continue;
+          }
         }
         
         let result = search.results[0];
@@ -1200,16 +1250,22 @@ $("#upload-posters-btn").addEventListener("click", async () => {
       }
       
       if (!movie.poster || movie.poster.includes("image.tmdb.org")) {
-        const details = await tmdbFetch(`/movie/${tmdbId}`, {});
-        if (!details.poster_path) {
-          logLine(`  ⚠️ У фильма нет постера на TMDB`, "#e8b74b");
-          failed++;
-          continue;
+        // Сначала пробуем получить русский постер
+        let posterUrl = await getRussianPoster(tmdbId);
+        
+        // Если русского постера нет, берем стандартный
+        if (!posterUrl) {
+          const details = await tmdbFetch(`/movie/${tmdbId}`, {});
+          if (!details.poster_path) {
+            logLine(`  ⚠️ У фильма нет постера на TMDB`, "#e8b74b");
+            failed++;
+            continue;
+          }
+          posterUrl = TMDB_IMG + details.poster_path;
         }
         
-        const tmdbPosterUrl = TMDB_IMG + details.poster_path;
         logLine(`  📤 Загрузка постера на ImgBB...`, "#e8b74b");
-        const imgbbUrl = await uploadToImgBB(tmdbPosterUrl);
+        const imgbbUrl = await uploadToImgBB(posterUrl);
         
         if (imgbbUrl) {
           await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
@@ -1250,6 +1306,103 @@ $("#upload-posters-btn").addEventListener("click", async () => {
   showMsg($("#upload-posters-msg"), `Готово: обновлено ${ok}, ошибок/пропусков ${failed}`, failed === 0);
   await loadAll();
 });
+
+// Функция открытия модального окна редактирования фильма
+function openEditMovieModal(movieId) {
+  const movie = movies[movieId];
+  if (!movie) return;
+  
+  // Заполняем форму данными фильма
+  $('#movie-title').value = movie.title;
+  $('#movie-alt').value = movie.altTitle || '';
+  $('#movie-year').value = movie.year;
+  $('#movie-duration').value = movie.duration;
+  $('#movie-desc').value = movie.description || '';
+  $('#movie-poster').value = movie.poster;
+  $('#movie-video').value = movie.videoUrl;
+  $('#movie-studio').value = movie.studioId;
+  $('#movie-genre').value = movie.genre;
+  $('#movie-kids').checked = movie.forKids || false;
+  
+  // Сохраняем ID текущего редактируемого фильма
+  window.currentEditMovieId = movieId;
+  
+  // Заполняем актеров
+  renderActorChips(movie.actors || [], 'movie-actors');
+  
+  // Прокручиваем к форме и показываем сообщение
+  document.querySelector('#tab-movies').scrollIntoView({ behavior: 'smooth' });
+  showMsg($('#movie-msg'), 'Редактирование фильма. Измените поля и нажмите "Сохранить фильм"', true);
+}
+
+// Модифицируем функцию сохранения фильма для поддержки редактирования
+const originalSaveMovie = saveMovie;
+saveMovie = async function() {
+  // Если мы в режиме редактирования
+  if (window.currentEditMovieId) {
+    const id = window.currentEditMovieId;
+    const updates = {};
+    
+    // Собираем данные из формы
+    const title = $('#movie-title').value.trim();
+    const altTitle = $('#movie-alt').value.trim();
+    const year = parseInt($('#movie-year').value);
+    const duration = parseInt($('#movie-duration').value);
+    const description = $('#movie-desc').value.trim();
+    const poster = $('#movie-poster').value.trim();
+    const videoUrl = $('#movie-video').value.trim();
+    const studioId = $('#movie-studio').value;
+    const genre = $('#movie-genre').value;
+    const forKids = $('#movie-kids').checked;
+    
+    // Получаем актеров из чипов
+    const actorElements = document.querySelectorAll('#movie-actors .chip');
+    const actors = Array.from(actorElements).map(el => ({
+      id: el.getAttribute('data-id'),
+      name: el.querySelector('.chip-text').textContent
+    }));
+    
+    // Обновляем поля
+    updates.title = title;
+    if (altTitle) updates.altTitle = altTitle;
+    updates.year = year;
+    updates.duration = duration;
+    if (description) updates.description = description;
+    updates.poster = poster;
+    updates.videoUrl = videoUrl;
+    updates.studioId = studioId;
+    updates.genre = genre;
+    updates.forKids = forKids;
+    updates.actors = actors;
+    
+    try {
+      await update(ref(db, `titles/${id}`), updates);
+      showMsg($('#movie-msg'), 'Фильм успешно обновлён!', true);
+      window.currentEditMovieId = null;
+      
+      // Перезагружаем данные
+      await loadAll();
+      
+      // Очищаем форму через небольшую задержку
+      setTimeout(() => {
+        $('#movie-title').value = '';
+        $('#movie-alt').value = '';
+        $('#movie-year').value = '';
+        $('#movie-duration').value = '';
+        $('#movie-desc').value = '';
+        $('#movie-poster').value = '';
+        $('#movie-video').value = '';
+        $('#movie-actors').innerHTML = '';
+      }, 1500);
+    } catch (e) {
+      showMsg($('#movie-msg'), 'Ошибка обновления: ' + e.message, false);
+    }
+    return;
+  }
+  
+  // Иначе выполняем оригинальную логику создания нового фильма
+  return originalSaveMovie.apply(this, arguments);
+};
 </script>
 </body>
 </html>
