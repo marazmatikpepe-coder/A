@@ -789,12 +789,7 @@ $("#actors-bulk-btn").addEventListener("click", async () => {
 
 $("#form-movie").addEventListener("submit", async (e) => {
   e.preventDefault();
-  
-  // Если мы в режиме редактирования, используем новую логику
-  if (window.currentEditMovieId) {
-    return; // Обработка уже выполняется в переопределённой функции saveMovie
-  }
-  
+
   const studioId = $("#movie-studio").value;
   if (!studioId) { showMsg($("#movie-msg"), "Выберите студию", false); return; }
   const item = {
@@ -809,14 +804,34 @@ $("#form-movie").addEventListener("submit", async (e) => {
     poster: $("#movie-poster").value.trim(),
     videoUrl: $("#movie-video").value.trim(),
     actorIds: Array.from(selectedMovieActors),
-    forKids: $("#movie-kids").checked,
-    ratingSum: 0, ratingCount: 0, rating: 0,
-    createdAt: Date.now()
+    forKids: $("#movie-kids").checked
   };
   if (!item.title || !item.poster || !item.videoUrl) { showMsg($("#movie-msg"), "Заполните обязательные поля", false); return; }
+
+  // Режим редактирования уже существующего фильма
+  if (window.currentEditMovieId) {
+    const id = window.currentEditMovieId;
+    try {
+      await update(ref(db, `titles/${id}`), item);
+      window.currentEditMovieId = null;
+      $("#form-movie button.submit").textContent = "Добавить фильм";
+      $("#form-movie").reset();
+      selectedMovieActors.clear();
+      renderActorPickers();
+      showMsg($("#movie-msg"), "✅ Фильм обновлён");
+      await loadAll();
+    } catch (err) {
+      showMsg($("#movie-msg"), "Ошибка обновления: " + err.message, false);
+    }
+    return;
+  }
+
+  // Создание нового фильма
+  item.ratingSum = 0; item.ratingCount = 0; item.rating = 0; item.createdAt = Date.now();
   await set(push(ref(db, "titles")), item);
   $("#form-movie").reset();
   selectedMovieActors.clear();
+  renderActorPickers();
   showMsg($("#movie-msg"), "✅ Фильм добавлен");
   await loadAll();
 });
@@ -1307,102 +1322,51 @@ $("#upload-posters-btn").addEventListener("click", async () => {
   await loadAll();
 });
 
-// Функция открытия модального окна редактирования фильма
+// Функция открытия формы редактирования фильма (заполняет форму «Добавить фильм» существующими данными)
 function openEditMovieModal(movieId) {
   const movie = movies[movieId];
   if (!movie) return;
-  
-  // Заполняем форму данными фильма
-  $('#movie-title').value = movie.title;
+
+  $('#movie-title').value = movie.title || '';
   $('#movie-alt').value = movie.altTitle || '';
-  $('#movie-year').value = movie.year;
-  $('#movie-duration').value = movie.duration;
+  $('#movie-year').value = movie.year || '';
+  $('#movie-duration').value = movie.duration || '';
   $('#movie-desc').value = movie.description || '';
-  $('#movie-poster').value = movie.poster;
-  $('#movie-video').value = movie.videoUrl;
-  $('#movie-studio').value = movie.studioId;
-  $('#movie-genre').value = movie.genre;
+  $('#movie-poster').value = movie.poster || '';
+  $('#movie-video').value = movie.videoUrl || '';
+  $('#movie-studio').value = movie.studioId || '';
+  $('#movie-genre').value = movie.genre || '';
   $('#movie-kids').checked = movie.forKids || false;
-  
-  // Сохраняем ID текущего редактируемого фильма
+
+  // Заполняем выбранных актёров и перерисовываем чипы
+  selectedMovieActors.clear();
+  (movie.actorIds || []).forEach(aid => selectedMovieActors.add(aid));
+  renderActorPickers();
+
+  // Переключаемся на вкладку «Фильмы», если открыта другая
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'movies'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-movies'));
+
   window.currentEditMovieId = movieId;
-  
-  // Заполняем актеров
-  renderActorChips(movie.actors || [], 'movie-actors');
-  
-  // Прокручиваем к форме и показываем сообщение
+  $("#form-movie button.submit").textContent = "Сохранить изменения";
+
   document.querySelector('#tab-movies').scrollIntoView({ behavior: 'smooth' });
-  showMsg($('#movie-msg'), 'Редактирование фильма. Измените поля и нажмите "Сохранить фильм"', true);
+  showMsg($('#movie-msg'), 'Редактирование фильма. Измените поля и нажмите «Сохранить изменения»', true);
 }
 
-// Модифицируем функцию сохранения фильма для поддержки редактирования
-const originalSaveMovie = saveMovie;
-saveMovie = async function() {
-  // Если мы в режиме редактирования
-  if (window.currentEditMovieId) {
-    const id = window.currentEditMovieId;
-    const updates = {};
-    
-    // Собираем данные из формы
-    const title = $('#movie-title').value.trim();
-    const altTitle = $('#movie-alt').value.trim();
-    const year = parseInt($('#movie-year').value);
-    const duration = parseInt($('#movie-duration').value);
-    const description = $('#movie-desc').value.trim();
-    const poster = $('#movie-poster').value.trim();
-    const videoUrl = $('#movie-video').value.trim();
-    const studioId = $('#movie-studio').value;
-    const genre = $('#movie-genre').value;
-    const forKids = $('#movie-kids').checked;
-    
-    // Получаем актеров из чипов
-    const actorElements = document.querySelectorAll('#movie-actors .chip');
-    const actors = Array.from(actorElements).map(el => ({
-      id: el.getAttribute('data-id'),
-      name: el.querySelector('.chip-text').textContent
-    }));
-    
-    // Обновляем поля
-    updates.title = title;
-    if (altTitle) updates.altTitle = altTitle;
-    updates.year = year;
-    updates.duration = duration;
-    if (description) updates.description = description;
-    updates.poster = poster;
-    updates.videoUrl = videoUrl;
-    updates.studioId = studioId;
-    updates.genre = genre;
-    updates.forKids = forKids;
-    updates.actors = actors;
-    
-    try {
-      await update(ref(db, `titles/${id}`), updates);
-      showMsg($('#movie-msg'), 'Фильм успешно обновлён!', true);
-      window.currentEditMovieId = null;
-      
-      // Перезагружаем данные
-      await loadAll();
-      
-      // Очищаем форму через небольшую задержку
-      setTimeout(() => {
-        $('#movie-title').value = '';
-        $('#movie-alt').value = '';
-        $('#movie-year').value = '';
-        $('#movie-duration').value = '';
-        $('#movie-desc').value = '';
-        $('#movie-poster').value = '';
-        $('#movie-video').value = '';
-        $('#movie-actors').innerHTML = '';
-      }, 1500);
-    } catch (e) {
-      showMsg($('#movie-msg'), 'Ошибка обновления: ' + e.message, false);
-    }
-    return;
-  }
-  
-  // Иначе выполняем оригинальную логику создания нового фильма
-  return originalSaveMovie.apply(this, arguments);
-};
+// Если в URL передан ?edit=movie-<id>, сразу открываем это редактирование после загрузки данных
+(function initEditFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  const editParam = params.get('edit');
+  if (!editParam || !editParam.startsWith('movie-')) return;
+  const movieId = editParam.slice('movie-'.length);
+  const tryOpen = () => {
+    if (movies[movieId]) { openEditMovieModal(movieId); return true; }
+    return false;
+  };
+  const iv = setInterval(() => { if (tryOpen()) clearInterval(iv); }, 300);
+  setTimeout(() => clearInterval(iv), 8000);
+})();
 </script>
 </body>
 </html>
