@@ -638,6 +638,7 @@ function openDetails(id, autoplay){
       <div class="detail-actions">
         <button class="btn btn-primary" id="detail-play">▶ Смотреть</button>
         <button class="btn btn-secondary" id="detail-bookmark">${bookmarked ? "✓ В закладках" : "🔖 В закладки"}</button>
+        ${isAdmin && t.type === "movie" ? `<button class="btn btn-secondary" id="detail-edit">✏️ Изменить</button>` : ""}
       </div>
       <div id="series-nav"></div>
     </div>`;
@@ -645,6 +646,10 @@ function openDetails(id, autoplay){
   $("#detail-overlay").classList.add("show");
   $("#detail-close").onclick = closeDetails;
   $("#detail-bookmark").onclick = () => toggleWatchlist(id);
+  if (isAdmin && t.type === "movie") {
+    const editBtn = $("#detail-edit");
+    if (editBtn) editBtn.onclick = () => { window.location.href = `admin.html?edit=movie-${id}`; };
+  }
 
   if (t.type === "movie") {
     $("#detail-play").onclick = () => { closeDetails(); playMovie(id, t); };
