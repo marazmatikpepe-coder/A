@@ -84,3 +84,7 @@ export function timeToSeconds(str) {
   const [h, m, s] = parts;
   return h * 3600 + m * 60 + s;
 }
+
+
+// Публичный ключ TMDB v3 (для клиентских приложений)
+export const TMDB_KEY = "98cbd519b7ff20634b5c93328d5e77f3";

@@ -8,20 +8,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0c; --panel:#131317; --panel2:#0f0f13; --line:#232329;
-    --text:#f2f2f4; --muted:#8a8a92; --accent:#d63447; --accent2:#e8495c; --radius:14px;
+    --bg:#07120d; --panel:#0f1f17; --panel2:#0f0f13; --line:#1d3328;
+    --text:#f2f2f4; --muted:#8a8a92; --accent:#2f9e6b; --accent2:#4cc58a; --radius:14px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif; min-height:100vh;}
   .topbar{
     position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
-    padding:16px 28px; background:rgba(10,10,12,.85); backdrop-filter:blur(14px); border-bottom:1px solid var(--line);
+    padding:16px 28px; background:rgba(7,18,13,.85); backdrop-filter:blur(14px); border-bottom:1px solid var(--line);
   }
   .brand{font-weight:800; font-size:19px; display:flex; align-items:center; gap:8px;}
   .brand i{width:9px;height:9px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent2));}
   .brand small{color:var(--muted); font-weight:600; font-size:13px; margin-left:6px;}
   .topbar a{color:var(--muted); text-decoration:none; font-size:14px; font-weight:600; padding:9px 16px; border:1px solid var(--line); border-radius:9px; transition:.15s;}
-  .topbar a:hover{color:var(--text); border-color:#3a3a42;}
+  .topbar a:hover{color:var(--text); border-color:#34584a;}
   .wrap{max-width:1180px; margin:0 auto; padding:28px;}
   .tabs{display:flex; gap:8px; margin-bottom:26px; flex-wrap:wrap;}
   .tab-btn{
@@ -29,7 +29,7 @@
     padding:10px 18px; border-radius:10px; cursor:pointer; font-weight:700; font-size:13.5px; transition:.15s;
   }
   .tab-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border-color:transparent;}
-  .tab-btn:hover:not(.active){border-color:#3a3a42; color:var(--text);}
+  .tab-btn:hover:not(.active){border-color:#34584a; color:var(--text);}
   .tab-content{display:none;}
   .tab-content.active{display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start;}
   @media (max-width:900px){ .tab-content.active{grid-template-columns:1fr;} }
@@ -38,7 +38,7 @@
   .field{margin-bottom:14px;}
   label{display:block; font-size:11.5px; color:var(--muted); margin-bottom:6px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;}
   input[type=text], input[type=number], input[type=url], textarea, select{
-    width:100%; padding:11px 12px; background:#0d0d10; border:1.5px solid var(--line); border-radius:9px;
+    width:100%; padding:11px 12px; background:#0a1810; border:1.5px solid var(--line); border-radius:9px;
     color:var(--text); font-size:14px; font-family:inherit; outline:none; transition:border-color .15s;
   }
   input:focus, textarea:focus, select:focus{border-color:var(--accent);}
@@ -48,13 +48,13 @@
   .checkbox-row{display:flex; align-items:center; gap:9px; margin:14px 0;}
   .checkbox-row input{width:auto;}
   .checkbox-row label{margin:0; text-transform:none; font-weight:600; color:var(--text); font-size:13.5px;}
-  .chip-picker{display:flex; flex-wrap:wrap; gap:7px; max-height:140px; overflow-y:auto; padding:10px; background:#0d0d10; border:1.5px solid var(--line); border-radius:9px;}
+  .chip-picker{display:flex; flex-wrap:wrap; gap:7px; max-height:140px; overflow-y:auto; padding:10px; background:#0a1810; border:1.5px solid var(--line); border-radius:9px;}
   .bulk-select-row{display:flex; gap:8px; margin-top:8px; align-items:flex-start;}
   .bulk-select-row textarea{min-height:44px; font-size:12.5px;}
   .icon-btn.wide{padding:10px 14px; white-space:nowrap; align-self:stretch;}
   .chip{padding:6px 12px; border-radius:20px; border:1.5px solid var(--line); font-size:12.5px; cursor:pointer; color:var(--muted); font-weight:600; transition:.15s; user-select:none;}
   .chip.selected{background:var(--accent); border-color:var(--accent); color:#fff;}
-  .chip:hover{border-color:#3a3a42;}
+  .chip:hover{border-color:#34584a;}
   .radio-group{display:flex; gap:18px; margin-bottom:14px;}
   .radio-group label{display:flex; align-items:center; gap:7px; cursor:pointer; font-weight:600; text-transform:none; color:var(--text); font-size:13.5px;}
   .radio-group input{width:auto;}
@@ -63,20 +63,20 @@
     cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-family:inherit; transition:filter .15s;
   }
   button.submit:hover{filter:brightness(1.08);}
-  .time-preview{background:#0d0d10; border:1px solid var(--line); padding:9px 12px; border-radius:8px; font-family:monospace; color:#7cf0ab; font-size:13px; margin-top:8px;}
+  .time-preview{background:#0a1810; border:1px solid var(--line); padding:9px 12px; border-radius:8px; font-family:monospace; color:#7cf0ab; font-size:13px; margin-top:8px;}
   .msg{margin-top:12px; padding:9px 12px; border-radius:8px; font-size:13px; display:none;}
   .msg.ok{display:block; background:rgba(47,191,113,.12); color:#7cf0ab; border:1px solid rgba(47,191,113,.3);}
-  .msg.err{display:block; background:rgba(214,52,71,.12); color:#ff8a95; border:1px solid rgba(214,52,71,.3);}
+  .msg.err{display:block; background:rgba(230,70,70,.12); color:#ff8a95; border:1px solid rgba(230,70,70,.3);}
   .list{max-height:640px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
   .list::-webkit-scrollbar{width:6px;} .list::-webkit-scrollbar-thumb{background:#2a2a30; border-radius:3px;}
-  .item-card{background:#0d0d10; border:1px solid var(--line); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .item-card{background:#0a1810; border:1px solid var(--line); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .item-info{min-width:0;}
   .item-title{font-weight:700; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .item-meta{font-size:11.5px; color:var(--muted); margin-top:3px;}
   .badge{display:inline-block; padding:2px 8px; border-radius:5px; font-size:9.5px; font-weight:800; text-transform:uppercase; margin-left:6px; letter-spacing:.03em;}
   .badge-kids{background:#2fa5bf;}
   .icon-btn{background:transparent; border:1px solid var(--line); color:var(--muted); padding:7px 11px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; flex-shrink:0;}
-  .icon-btn:hover{border-color:var(--accent); color:#ff8a95;}
+  .icon-btn:hover{border-color:var(--accent); color:#7cf0ab;}
   .empty{color:var(--muted); text-align:center; padding:30px; font-size:13.5px;}
   .locked{display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; gap:14px; text-align:center;}
   .locked h1{font-size:22px;}
@@ -84,18 +84,19 @@
   .episodes-box{margin-top:16px; padding-top:16px; border-top:1px dashed var(--line);}
   .episodes-box h3{font-size:13px; margin-bottom:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
 </style>
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 
 <div id="locked-view" class="locked" style="display:none;">
   <h1>🔒 Доступ ограничен</h1>
   <p>Админ-панель доступна только пользователям с правами администратора.</p>
-  <a href="index.html" style="color:#ff8a95; font-weight:700;">← Вернуться на главную</a>
+  <a href="index.html" style="color:#7cf0ab; font-weight:700;">← Вернуться на главную</a>
 </div>
 
 <div id="app" style="display:none;">
   <div class="topbar">
-    <div class="brand"><i></i>AKUR <small>Админ-панель</small></div>
+    <div class="brand"><img src="logo.png" alt="" style="width:30px;height:30px">AKUR <small>Админ-панель</small></div>
     <a href="index.html">← На главную</a>
   </div>
 
@@ -147,13 +148,13 @@
 
     <!-- ФИЛЬМЫ -->
     <div class="tab-content" id="tab-movies">
-      <div class="panel" style="border-color:rgba(214,52,71,.4); grid-column:1/-1;">
+      <div class="panel" style="border-color:rgba(47,158,107,.4); grid-column:1/-1;">
         <h2>⚡ Быстрое заполнение текстом</h2>
         <p style="color:var(--muted); font-size:12.5px; line-height:1.6; margin-bottom:10px;">
           Вставьте текст в формате ниже — поля названия, студии, жанра, описания, видео и актёров заполнятся сами.
           Студия и жанр ищутся среди уже добавленных по первому слову. Год, хронометраж и постер придётся указать вручную.
         </p>
-        <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:12px; white-space:pre-wrap;">Название: Интерстеллар
+        <pre style="background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:12px; white-space:pre-wrap;">Название: Интерстеллар
 Студия: Paramount Pictures
 Жанр: Фантастика
 Год выхода: 2014
@@ -292,32 +293,28 @@ VK Video: https://vk.com/video-12345_67890
           Актёры и студии сохраняются на английском / как есть в оригинале — переводить их можно будет отдельно позже.
           Всё остальное (описание, жанр) — на русском.
         </p>
-        <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:14px; white-space:pre-wrap;">Первый мститель: Противостояние (2016): https://vk.com/video-1_1
+        <pre style="background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:14px; white-space:pre-wrap;">Первый мститель: Противостояние (2016): https://vk.com/video-1_1
 Интерстеллар: https://vk.com/video-2_2
 Дюна: https://vk.com/video-3_3</pre>
         <div class="field"><textarea id="import-list" placeholder="Название (Год): ссылка_на_вк" style="min-height:180px;"></textarea></div>
         <div class="checkbox-row"><input type="checkbox" id="import-skip-existing" checked><label for="import-skip-existing">Пропускать фильмы, уже добавленные ранее (по TMDB ID)</label></div>
         <button class="submit" type="button" id="import-start-btn">Начать импорт</button>
         <div class="msg" id="import-summary-msg"></div>
-        <div id="import-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
+        <div id="import-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
       </div>
       
-      <!-- Пакетная загрузка постеров для существующих фильмов -->
-      <div class="panel" style="grid-column:1/-1; margin-top:26px; border-color:rgba(214,52,71,.4);">
-        <h2>🔄 Пакетная загрузка постеров на ImgBB</h2>
+      <!-- Обновление постеров/трейлеров одной кнопкой -->
+      <div class="panel" style="grid-column:1/-1; margin-top:26px; border-color:rgba(47,158,107,.45);">
+        <h2>🔄 Обновить все фильмы и сериалы с TMDB</h2>
         <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
-          Вставьте список фильмов по одному на строку в любом из форматов:<br>
-          • Просто название: <b>Матрица</b><br>
-          • Название с годом и ссылкой: <b>Матрица(1999) https://vk.com/video...</b><br>
-          Постеры будут найдены через TMDB, загружены на ImgBB и обновлены в базе.
+          Одна кнопка для всей базы: у каждого фильма и сериала подберётся <b>русский постер</b> (сохраняется ссылка на TMDB, ImgBB больше не нужен),
+          найдётся <b>трейлер</b>, а там, где нет TMDB ID, он определится по названию и году (сомнительные совпадения пропускаются).
+          Старый постер сохраняется в поле <code>posterBackup</code>. Фильмы, серии и ссылки на видео не удаляются и не меняются.
         </p>
-        <pre style="background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:11.5px; color:#9a9aa2; line-height:1.7; margin-bottom:14px; white-space:pre-wrap;">Матрица
-Дюна(2021) https://vk.com/video-1_1
-Интерстеллар (2014): https://vk.com/video-2_2</pre>
-        <div class="field"><textarea id="tmdb-ids-list" placeholder="Матрица&#10;Дюна(2021) https://vk.com/video...&#10;Интерстеллар (2014): https://vk.com/video..." style="min-height:180px;"></textarea></div>
-        <button class="submit" type="button" id="upload-posters-btn">Загрузить постеры на ImgBB</button>
-        <div class="msg" id="upload-posters-msg"></div>
-        <div id="upload-posters-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0d0d10; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
+        <div class="checkbox-row"><input type="checkbox" id="refresh-dry"><label for="refresh-dry">Только проверить (ничего не записывать в базу)</label></div>
+        <button class="submit" type="button" id="refresh-btn">Обновить постеры и трейлеры</button>
+        <div class="msg" id="refresh-msg"></div>
+        <div id="refresh-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
       </div>
     </div>
 
@@ -947,28 +944,8 @@ const TMDB_KEY = "98cbd519b7ff20634b5c93328d5e77f3";
 const TMDB_IMG = "https://image.tmdb.org/t/p/w780";
 const IMGBB_API_KEY = "d8a9dad272290e9bd78173da55a97d77";
 
-async function uploadToImgBB(imageUrl){
-  uploadToImgBB.lastError = null;
-  if (!imageUrl) return null;
-  try {
-    const response = await fetch("proxy-upload.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl })
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || !data || !data.url) {
-      uploadToImgBB.lastError = (data && data.error) || `HTTP ${response.status}`;
-      console.error("Ошибка загрузки на ImgBB через прокси:", uploadToImgBB.lastError);
-      return null;
-    }
-    return data.url;
-  } catch (err) {
-    uploadToImgBB.lastError = err.message;
-    console.error("Ошибка загрузки на ImgBB через прокси:", err);
-    return null;
-  }
-}
+// Постеры теперь хранятся прямо на TMDB (ImgBB не используется)
+async function uploadToImgBB(imageUrl){ uploadToImgBB.lastError = null; return imageUrl || null; }
 
 const TMDB_GENRE_MAP = {
   "боевик": "Боевик", "приключения": "Приключения", "мультфильм": "Мультфильм",
@@ -1105,7 +1082,7 @@ $("#import-start-btn").addEventListener("click", async () => {
         importLog(`  ⚠️ уже есть в базе (TMDB ID ${result.id}) — пропущено`, "#e8b74b"); skipped++; continue;
       }
 
-      const details = await tmdbFetch(`/movie/${result.id}`, { language: "ru-RU", append_to_response: "credits" });
+      const details = await tmdbFetch(`/movie/${result.id}`, { language: "ru-RU", append_to_response: "credits,videos", include_video_language: "ru,en" });
 
       // студия
       let studioId = null;
@@ -1152,7 +1129,7 @@ $("#import-start-btn").addEventListener("click", async () => {
         importLog(`  ⚠️ Русского постера нет, используем стандартный`, "#e8b74b");
       }
       if (sourcePosterUrl) {
-        importLog(`  📤 Загрузка постера на ImgBB...`, "#e8b74b");
+        importLog(`  📤 Сохраняю ссылку на постер TMDB...`, "#e8b74b");
         const imgbbUrl = await uploadToImgBB(sourcePosterUrl);
         if (imgbbUrl) {
           posterUrl = imgbbUrl;
@@ -1176,7 +1153,8 @@ $("#import-start-btn").addEventListener("click", async () => {
         videoUrl: item.videoUrl,
         actorIds,
         forKids: genre === "Семейный" || genre === "Мультфильм" || genre === "Аниме",
-        tmdbId: result.id,
+        tmdbId: result.id, tmdbType: "movie",
+        trailer: ((details.videos?.results||[]).filter(v=>v.site==="YouTube").find(v=>v.type==="Trailer") || (details.videos?.results||[]).find(v=>v.site==="YouTube"))?.key || "",
         ratingSum: 0, ratingCount: 0, rating: 0,
         createdAt: Date.now()
       };
@@ -1197,150 +1175,85 @@ $("#import-start-btn").addEventListener("click", async () => {
   await loadAll();
 });
 
-// ================= ПАКЕТНАЯ ЗАГРУЗКА ПОСТЕРОВ ДЛЯ СУЩЕСТВУЮЩИХ ФИЛЬМОВ =================
-$("#upload-posters-btn").addEventListener("click", async () => {
-  const rawLines = $("#tmdb-ids-list").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (!rawLines.length) { showMsg($("#upload-posters-msg"), "Список фильмов пуст", false); return; }
-  
-  const btn = $("#upload-posters-btn");
-  btn.disabled = true; btn.textContent = "Загружаем...";
-  $("#upload-posters-log").innerHTML = ""; $("#upload-posters-log").style.display = "block";
-  
-  let ok = 0, failed = 0;
-  
-  for (const line of rawLines) {
-    const logLine = (msg, cls) => {
-      const lineEl = document.createElement("div");
-      if (cls) lineEl.style.color = cls;
-      lineEl.textContent = msg;
-      $("#upload-posters-log").appendChild(lineEl);
-      $("#upload-posters-log").scrollTop = $("#upload-posters-log").scrollHeight;
-    };
-    
-    // Парсим строку: "Название(год) ссылка" или просто "Название"
-    let movieName = line;
-    let year = null;
-    
-    // Пробуем извлечь год из скобок
-    const yearMatch = line.match(/\((\d{4})\)/);
-    if (yearMatch) {
-      year = yearMatch[1];
-      movieName = line.replace(/\s*\(\d{4}\)/g, '').trim();
-    }
-    
-    // Убираем ссылку на VK если есть
-    movieName = movieName.replace(/https?:\/\/\S+/g, '').replace(/:\s*$/, '').trim();
-    
-    if (!movieName) {
-      logLine(`⚠️ Пустая строка — пропускаем`, "#e8b74b");
-      continue;
-    }
-    
-    logLine(`🔍 Поиск фильма: "${movieName}"${year ? ` (${year})` : ''}...`);
-    try {
-      // Ищем фильм в базе по названию
-      const movieEntry = Object.entries(movies).find(([key, m]) => {
-        const baseName = m.title.toLowerCase().replace(/\s*\(\d{4}\)/g, '').trim();
-        const searchName = movieName.toLowerCase();
-        return baseName === searchName || m.title.includes(movieName) || movieName.includes(m.title);
-      });
-      
-      if (!movieEntry) {
-        logLine(`  ❌ Фильм "${movieName}" не найден в базе`, "#ff8a95");
-        failed++;
-        continue;
-      }
-      
-      const [movieKey, movie] = movieEntry;
-      let tmdbId = movie.tmdbId;
-      
-      if (!tmdbId) {
-        logLine(`  ⚠️ У фильма нет TMDB ID — ищем по названию...`, "#e8b74b");
-        const searchParams = new URLSearchParams({ query: movieName, language: "ru-RU" });
-        const search = await tmdbFetch("/search/movie", searchParams);
-        
-        if (!search.results || search.results.length === 0) {
-          // Пробуем поиск на английском (транслитерация или оригинальное название)
-          logLine(`  ⚠️ Не найдено на русском, пробуем английский запрос...`, "#e8b74b");
-          const searchEn = await tmdbFetch("/search/movie", new URLSearchParams({ query: movieName, language: "en-US" }));
-          if (searchEn.results && searchEn.results.length > 0) {
-            Object.assign(search, searchEn);
-          } else {
-            logLine(`  ❌ Не найдено в TMDB`, "#ff8a95");
-            failed++;
-            continue;
-          }
-        }
-        
-        let result = search.results[0];
-        if (year) {
-          const exactMatch = search.results.find(r => r.release_date && r.release_date.startsWith(year));
-          if (exactMatch) result = exactMatch;
-        }
-        
-        await update(ref(db, `titles/${movieKey}`), { tmdbId: result.id });
-        movies[movieKey].tmdbId = result.id;
-        tmdbId = result.id;
-        logLine(`  ✅ Найден TMDB ID: ${result.id}`, "#7cf0ab");
-      }
-      
-      if (!movie.poster || movie.poster.includes("image.tmdb.org")) {
-        // Сначала пробуем получить русский постер
-        let posterUrl = await getRussianPoster(tmdbId);
-        
-        // Если русского постера нет, берем стандартный
-        if (!posterUrl) {
-          const details = await tmdbFetch(`/movie/${tmdbId}`, {});
-          if (!details.poster_path) {
-            logLine(`  ⚠️ У фильма нет постера на TMDB`, "#e8b74b");
-            failed++;
-            continue;
-          }
-          posterUrl = TMDB_IMG + details.poster_path;
-        }
-        
-        logLine(`  📤 Загрузка постера на ImgBB...`, "#e8b74b");
-        const imgbbUrl = await uploadToImgBB(posterUrl);
-        
-        if (imgbbUrl) {
-          await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
-          movies[movieKey].poster = imgbbUrl;
-          logLine(`  ✅ Постер обновлён: ${imgbbUrl}`, "#7cf0ab");
-          ok++;
-        } else {
-          logLine(`  ❌ Не удалось загрузить на ImgBB (${uploadToImgBB.lastError || "неизвестная ошибка"})`, "#ff8a95");
-          failed++;
-        }
-      } else {
-        logLine(`  ℹ️ У фильма уже есть постер — проверяем, загружен ли на ImgBB...`, "#e8b74b");
-        if (movie.poster.includes("ibb.co") || movie.poster.includes("i.ibb.co")) {
-          logLine(`  ✅ Постер уже на ImgBB — пропускаем`, "#7cf0ab");
-          ok++;
-        } else {
-          logLine(`  📤 Загрузка существующего постера на ImgBB...`, "#e8b74b");
-          const imgbbUrl = await uploadToImgBB(movie.poster);
-          
-          if (imgbbUrl) {
-            await update(ref(db, `titles/${movieKey}`), { poster: imgbbUrl });
-            movies[movieKey].poster = imgbbUrl;
-            logLine(`  ✅ Постер обновлён: ${imgbbUrl}`, "#7cf0ab");
-            ok++;
-          } else {
-            logLine(`  ❌ Не удалось загрузить на ImgBB (${uploadToImgBB.lastError || "неизвестная ошибка"})`, "#ff8a95");
-            failed++;
-          }
-        }
-      }
-    } catch (err) {
-      logLine(`  ❌ Ошибка: ${err.message}`, "#ff8a95");
-      failed++;
-    }
+// ================= ОБНОВЛЕНИЕ ПОСТЕРОВ И ТРЕЙЛЕРОВ С TMDB (одной кнопкой) =================
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function rlog(msg, color){
+  const box = $("#refresh-log"); box.style.display = "block";
+  const d = document.createElement("div"); if (color) d.style.color = color; d.textContent = msg;
+  box.appendChild(d); box.scrollTop = box.scrollHeight;
+}
+async function pickPosterPath(type, id){
+  const d = await tmdbFetch(`/${type}/${id}/images`, { include_image_language: "ru,null,en", language: "ru" });
+  const ps = d.posters || [];
+  const best = l => l.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.width || 0) - (a.width || 0))[0];
+  for (const lang of ["ru", null, "en"]) {
+    const l = ps.filter(p => lang === null ? !p.iso_639_1 : p.iso_639_1 === lang);
+    if (l.length) return { path: best(l).file_path, lang: lang || "без текста" };
   }
-  
-  btn.disabled = false; btn.textContent = "Загрузить постеры на ImgBB";
-  showMsg($("#upload-posters-msg"), `Готово: обновлено ${ok}, ошибок/пропусков ${failed}`, failed === 0);
-  await loadAll();
+  return null;
+}
+async function pickTrailerKey(type, id){
+  for (const lang of ["ru-RU", "en-US"]) {
+    const d = await tmdbFetch(`/${type}/${id}/videos`, { language: lang });
+    const yt = (d.results || []).filter(v => v.site === "YouTube");
+    const v = yt.find(v => v.type === "Trailer") || yt.find(v => v.type === "Teaser");
+    if (v) return v.key;
+  }
+  return null;
+}
+async function findTmdbMatch(type, t){
+  const y = t.year ? Number(t.year) : null;
+  const q = async (query, withYear) => {
+    const p = { query };
+    if (withYear && y) p[type === "movie" ? "year" : "first_air_date_year"] = y;
+    return (await tmdbFetch(`/search/${type}`, p)).results || [];
+  };
+  let res = await q(t.title, true);
+  if (!res.length && t.altTitle) res = await q(t.altTitle, true);
+  if (!res.length && y) res = (await q(t.title, false)).filter(x => Math.abs(Number((x.release_date || x.first_air_date || "0").slice(0, 4)) - y) <= 1);
+  if (!y) { // без года берём только точное совпадение названия
+    const n = normalizeName(t.title);
+    res = res.filter(x => [x.title, x.name, x.original_title, x.original_name].some(v => normalizeName(v) === n));
+  }
+  return res[0] || null;
+}
+$("#refresh-btn").addEventListener("click", async () => {
+  const dry = $("#refresh-dry").checked;
+  const btn = $("#refresh-btn"); btn.disabled = true; btn.textContent = "Обновляю…";
+  $("#refresh-log").innerHTML = "";
+  const all = Object.entries({ ...movies, ...series });
+  let changed = 0, same = 0, failed = 0, trailers = 0;
+  rlog(`Тайтлов в базе: ${all.length}${dry ? " — режим проверки, в базу ничего не пишу" : ""}`);
+  for (const [id, t] of all) {
+    const type = t.tmdbType || (t.type === "series" ? "tv" : "movie");
+    try {
+      const upd = {};
+      let tid = t.tmdbId;
+      if (!tid) {
+        const m = await findTmdbMatch(type, t);
+        if (!m) { rlog(`❌ «${t.title}» — не нашёл на TMDB, пропускаю`, "#ff8a95"); failed++; continue; }
+        tid = m.id; upd.tmdbId = tid; upd.tmdbType = type;
+        rlog(`🔗 «${t.title}» → TMDB «${m.title || m.name}» (${(m.release_date || m.first_air_date || "").slice(0, 4)})`, "#7cf0ab");
+      } else if (!t.tmdbType) upd.tmdbType = type;
+      const p = await pickPosterPath(type, tid);
+      if (p) {
+        const url = "https://image.tmdb.org/t/p/w780" + p.path;
+        if (url !== t.poster) {
+          upd.poster = url;
+          if (t.poster && !/image\.tmdb\.org/.test(t.poster) && !t.posterBackup) upd.posterBackup = t.poster;
+          rlog(`🖼 «${t.title}» — новый постер (${p.lang})`);
+        } else same++;
+      } else rlog(`⚠️ «${t.title}» — постеров на TMDB нет, оставляю прежний`, "#e8b74b");
+      if (!t.trailer) { const k = await pickTrailerKey(type, tid); if (k) { upd.trailer = k; trailers++; } }
+      if (Object.keys(upd).length) { if (!dry) await update(ref(db, `titles/${id}`), upd); changed++; }
+      await sleep(120);
+    } catch (e) { rlog(`❌ «${t.title}»: ${e.message}`, "#ff8a95"); failed++; }
+  }
+  btn.disabled = false; btn.textContent = "Обновить постеры и трейлеры";
+  showMsg($("#refresh-msg"), `${dry ? "Проверка: " : ""}обновлено ${changed}, без изменений ${same}, трейлеров найдено ${trailers}, пропущено ${failed}`, failed === 0);
+  if (!dry) await loadAll();
 });
+
 
 // Функция открытия формы редактирования фильма (заполняет форму «Добавить фильм» существующими данными)
 function openEditMovieModal(movieId) {

@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0a0c; --bg2:#0d0d10; --panel:#131317; --line:#232329; --line-soft:#1b1b20;
+  --bg:#07120d; --bg2:#0a1810; --panel:#0f1f17; --line:#1d3328; --line-soft:#163025;
   --text:#f2f2f4; --muted:#8f8f97; --muted2:#6c6c74;
-  --accent:#d63447; --accent2:#e8495c; --gold:#e8b74b;
+  --accent:#2f9e6b; --accent2:#4cc58a; --gold:#e8b74b;
   --radius:14px; --sidebar-w:236px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -20,7 +20,7 @@ body{
 }
 img{-webkit-user-drag:none;}
 ::-webkit-scrollbar{width:8px; height:8px;}
-::-webkit-scrollbar-thumb{background:#26262c; border-radius:4px;}
+::-webkit-scrollbar-thumb{background:#244236; border-radius:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 a{color:inherit;}
 button{font-family:inherit;}
@@ -28,10 +28,11 @@ button{font-family:inherit;}
 /* ---------- LAYOUT ---------- */
 .app{display:flex; min-height:100vh;}
 .sidebar{
-  width:var(--sidebar-w); flex-shrink:0; background:#0c0c0f; border-right:1px solid var(--line);
+  width:var(--sidebar-w); flex-shrink:0; background:#09160f; border-right:1px solid var(--line);
   display:flex; flex-direction:column; padding:22px 14px; position:fixed; top:0; left:0; bottom:0; z-index:200;
 }
 .logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:21px; padding:6px 10px 26px;}
+.logo img{width:34px;height:34px;object-fit:contain;}
 .logo i{width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent2));}
 .nav{display:flex; flex-direction:column; gap:3px;}
 .nav-item{
@@ -40,7 +41,7 @@ button{font-family:inherit;}
 }
 .nav-item .ic{width:19px; text-align:center; font-size:16px;}
 .nav-item:hover{background:#17171b; color:var(--text);}
-.nav-item.active{background:linear-gradient(135deg, rgba(214,52,71,.18), rgba(232,73,92,.08)); color:#fff; border-color:rgba(214,52,71,.35);}
+.nav-item.active{background:linear-gradient(135deg, rgba(47,158,107,.18), rgba(76,197,138,.08)); color:#fff; border-color:rgba(47,158,107,.35);}
 .nav-item.focused{outline:2px solid var(--accent); outline-offset:-2px;}
 .nav-spacer{flex:1;}
 .nav-bottom{display:flex; flex-direction:column; gap:3px; padding-top:10px; border-top:1px solid var(--line);}
@@ -98,7 +99,7 @@ button{font-family:inherit;}
   flex-shrink:0; width:170px; cursor:pointer; border-radius:11px; overflow:hidden; position:relative;
   border:2px solid transparent; transition:transform .18s, border-color .18s, box-shadow .18s; background:#141417;
 }
-.card .poster{width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:#1a1a1e;}
+.card .poster{width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:#12251b;}
 .card-info{padding:9px 10px 11px;}
 .card-title{font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .card-meta{font-size:11px; color:var(--muted); margin-top:3px; display:flex; align-items:center; gap:6px;}
@@ -112,7 +113,7 @@ button{font-family:inherit;}
 /* GENRES */
 .genre-chips{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:28px;}
 .genre-chip{padding:9px 18px; border-radius:22px; border:1.5px solid var(--line); background:var(--panel); color:var(--muted); font-weight:700; font-size:13px; cursor:pointer; transition:.15s;}
-.genre-chip.active, .genre-chip:hover{border-color:var(--accent2); color:#fff; background:rgba(214,52,71,.15);}
+.genre-chip.active, .genre-chip:hover{border-color:var(--accent2); color:#fff; background:rgba(47,158,107,.15);}
 
 /* SEARCH */
 .search-box{position:relative; max-width:640px; margin-bottom:26px;}
@@ -126,14 +127,14 @@ button{font-family:inherit;}
 .empty-state{color:var(--muted); text-align:center; padding:60px 20px; font-size:14.5px;}
 
 /* ---------- MODALS / OVERLAYS ---------- */
-.overlay{position:fixed; inset:0; background:rgba(5,5,6,.75); backdrop-filter:blur(6px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px;}
+.overlay{position:fixed; inset:0; background:rgba(3,10,7,.78); backdrop-filter:blur(6px); z-index:500; display:none; align-items:center; justify-content:center; padding:20px;}
 .overlay.show{display:flex;}
 .detail-modal{
   width:100%; max-width:760px; max-height:88vh; overflow-y:auto; background:var(--panel); border:1px solid var(--line);
   border-radius:18px; position:relative; animation:pop .2s ease;
 }
 @keyframes pop{ from{opacity:0; transform:scale(.96);} to{opacity:1; transform:scale(1);} }
-.detail-backdrop{width:100%; aspect-ratio:16/8; object-fit:cover; border-radius:18px 18px 0 0; background:#1a1a1e;}
+.detail-backdrop{width:100%; aspect-ratio:16/8; object-fit:cover; border-radius:18px 18px 0 0; background:#12251b;}
 .detail-close{position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%; background:rgba(0,0,0,.55); border:none; color:#fff; font-size:16px; cursor:pointer; z-index:2;}
 .detail-body{padding:26px 30px 34px;}
 .detail-title{font-size:26px; font-weight:800; margin-bottom:10px;}
@@ -143,8 +144,8 @@ button{font-family:inherit;}
 .detail-actors{font-size:13px; color:var(--muted); margin-bottom:22px;}
 .detail-actions{display:flex; gap:12px; margin-bottom:8px; flex-wrap:wrap;}
 .season-select-row{display:flex; align-items:center; gap:10px; margin:20px 0 14px;}
-.season-select-row select{padding:9px 12px; background:#0d0d10; border:1.5px solid var(--line); border-radius:8px; color:var(--text); font-size:13.5px;}
-.episode-row{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#0d0d10; border:1px solid var(--line-soft); border-radius:10px; margin-bottom:8px; cursor:pointer; transition:.15s;}
+.season-select-row select{padding:9px 12px; background:#0a1810; border:1.5px solid var(--line); border-radius:8px; color:var(--text); font-size:13.5px;}
+.episode-row{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#0a1810; border:1px solid var(--line-soft); border-radius:10px; margin-bottom:8px; cursor:pointer; transition:.15s;}
 .episode-row:hover, .episode-row.focused{border-color:var(--accent2);}
 .episode-row .ep-num{color:var(--muted); font-weight:800; font-size:13px; width:26px;}
 .episode-row .ep-title{font-weight:700; font-size:13.5px; flex:1;}
@@ -165,18 +166,39 @@ button{font-family:inherit;}
 .star.on{color:var(--gold);}
 .rate-skip{color:var(--muted); font-size:13px; cursor:pointer; margin-top:4px;}
 
-.ctx-menu{position:fixed; z-index:600; background:#18181c; border:1px solid var(--line); border-radius:11px; padding:6px; min-width:200px; box-shadow:0 16px 40px rgba(0,0,0,.55); display:none;}
+.ctx-menu{position:fixed; z-index:600; background:#12251b; border:1px solid var(--line); border-radius:11px; padding:6px; min-width:200px; box-shadow:0 16px 40px rgba(0,0,0,.55); display:none;}
 .ctx-menu.show{display:block;}
 .ctx-item{padding:11px 14px; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; color:var(--text); display:flex; align-items:center; gap:10px;}
-.ctx-item:hover{background:#232329;}
-.ctx-item.danger:hover{background:rgba(214,52,71,.15); color:#ff8a95;}
+.ctx-item:hover{background:#1d3328;}
+.ctx-item.danger:hover{background:rgba(230,70,70,.15); color:#ff8a95;}
 
 .gate-modal{width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:30px; text-align:center;}
 .gate-modal h3{font-size:18px; margin-bottom:10px;}
 .gate-modal p{color:var(--muted); font-size:13.5px; margin-bottom:22px; line-height:1.5;}
 
-.toast{position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px); background:#18181c; border:1px solid var(--line); padding:12px 20px; border-radius:10px; font-size:13.5px; font-weight:700; z-index:1000; opacity:0; transition:.25s; pointer-events:none;}
+.toast{position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px); background:#12251b; border:1px solid var(--line); padding:12px 20px; border-radius:10px; font-size:13.5px; font-weight:700; z-index:1000; opacity:0; transition:.25s; pointer-events:none;}
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+/* ---------- ACTORS / PERSON ---------- */
+.cast-title{font-weight:800; font-size:15px; margin:6px 0 12px;}
+.cast-row{display:flex; gap:14px; overflow-x:auto; padding:6px 2px 14px; margin-bottom:10px;}
+.cast-card{flex:0 0 92px; text-align:center; cursor:pointer; border-radius:12px; padding:6px 4px; transition:.15s; outline:none;}
+.cast-card:hover, .cast-card:focus{background:rgba(47,158,107,.16); transform:translateY(-3px);}
+.cast-card img, .cast-ph{width:76px; height:76px; border-radius:50%; object-fit:cover; margin:0 auto 7px; display:block; border:2px solid var(--line); background:var(--bg2);}
+.cast-ph{display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; color:var(--accent2);}
+.cast-card:hover img, .cast-card:focus img{border-color:var(--accent2);}
+.cast-card b{display:block; font-size:12px; line-height:1.25; font-weight:700;}
+.cast-card span{display:block; font-size:11px; color:var(--muted); margin-top:2px; line-height:1.2;}
+#person-overlay{z-index:700;}
+.person-head{display:flex; gap:20px; padding:30px 30px 8px; flex-wrap:wrap;}
+.person-head img{width:130px; height:180px; object-fit:cover; border-radius:14px; background:var(--bg2);}
+.person-head h2{font-size:24px; font-weight:800;}
+.person-bio{font-size:13.5px; line-height:1.65; color:#cfe3d7; max-height:150px; overflow-y:auto; margin-top:10px;}
+.person-films{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:14px; padding:10px 30px 30px;}
+.pf{font-size:11.5px; font-weight:700; line-height:1.25; opacity:.75; outline:none;}
+.pf img{width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:10px; margin-bottom:6px; background:var(--bg2);}
+.pf.lib{opacity:1; cursor:pointer;} .pf.lib img{box-shadow:0 0 0 2px var(--accent2);}
+.pf small{display:block; color:var(--accent2); font-weight:800; margin-top:2px;}
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:900px){
@@ -205,13 +227,14 @@ button{font-family:inherit;}
   .card{width:190px;}
 }
 </style>
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 
 <div class="app">
   <!-- SIDEBAR / BOTTOM NAV -->
   <div class="sidebar">
-    <div class="logo"><i></i>AKUR</div>
+    <div class="logo"><img src="logo.png" alt="">AKUR</div>
     <div class="nav">
       <div class="nav-item active focusable" data-view="home" tabindex="0"><span class="ic">🏠</span><span>Главная</span></div>
       <div class="nav-item focusable" data-view="search" tabindex="0"><span class="ic">🔍</span><span>Поиск</span></div>
@@ -232,7 +255,7 @@ button{font-family:inherit;}
   </div>
 
   <div class="main">
-    <div class="topbar-mobile"><div class="logo"><i></i>AKUR</div></div>
+    <div class="topbar-mobile"><div class="logo"><img src="logo.png" alt="">AKUR</div></div>
 
     <!-- HOME -->
     <div id="view-home" class="view-panel">
@@ -315,16 +338,101 @@ button{font-family:inherit;}
   </div>
 </div>
 
+<!-- PERSON -->
+<div class="overlay" id="person-overlay">
+  <div class="detail-modal" id="person-modal"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
 import {
   auth, db, ref, get, set, remove, onAuthStateChanged, signOut,
-  GENRES, toEmbedUrl, formatTime
+  GENRES, toEmbedUrl, formatTime, TMDB_KEY
 } from "./firebase-config.js";
 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+
+// ================= TMDB: АКТЁРЫ, ТРЕЙЛЕРЫ =================
+const TMDB_P = "https://image.tmdb.org/t/p/w185";
+const tmdbCache = {};
+async function tmdbGet(path, params = {}){
+  const u = new URL("https://api.themoviedb.org/3" + path);
+  u.searchParams.set("api_key", TMDB_KEY); u.searchParams.set("language", "ru-RU");
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u); if (!r.ok) throw new Error("TMDB " + r.status); return r.json();
+}
+const tmdbTypeOf = t => t.tmdbType || (t.type === "series" ? "tv" : "movie");
+function castHtml(cast){
+  return `<div class="cast-title">В ролях</div><div class="cast-row">` + cast.map(c => `
+    <div class="cast-card focusable" tabindex="0" data-pid="${c.id}">
+      ${c.profile_path ? `<img src="${TMDB_P}${c.profile_path}" loading="lazy" alt="">` : `<div class="cast-ph">${esc((c.name || "?")[0])}</div>`}
+      <b>${esc(c.name)}</b><span>${esc(c.character || "")}</span>
+    </div>`).join("") + `</div>`;
+}
+async function loadTmdbExtras(id, t){
+  const trailerBtn = key => { const b = $("#detail-trailer"); if (!b || !key) return; b.style.display = ""; b.onclick = () => openTrailer(key); };
+  trailerBtn(t.trailer);
+  if (!t.tmdbId) return;
+  try {
+    const d = tmdbCache[id] || (tmdbCache[id] = await tmdbGet(`/${tmdbTypeOf(t)}/${t.tmdbId}`, { append_to_response: "credits,videos", include_video_language: "ru,en" }));
+    if ($("#detail-modal").dataset.id !== id) return;
+    if (!t.trailer) {
+      const yt = (d.videos?.results || []).filter(v => v.site === "YouTube");
+      trailerBtn((yt.find(v => v.type === "Trailer") || yt.find(v => v.type === "Teaser"))?.key);
+    }
+    const cast = (d.credits?.cast || []).slice(0, 16);
+    const box = $("#detail-cast-box");
+    if (cast.length && box) {
+      box.innerHTML = castHtml(cast);
+      box.querySelectorAll(".cast-card").forEach(c => c.onclick = () => openPerson(c.dataset.pid));
+    }
+  } catch (e) { console.warn("TMDB:", e); }
+}
+function openTrailer(key){
+  currentPlaying = null;
+  $("#next-ep-btn").style.display = "none";
+  $("#player-iframe").src = `https://www.youtube.com/embed/${key}?autoplay=1&rel=0`;
+  $("#player-overlay").classList.add("show");
+}
+async function openPerson(pid){
+  const m = $("#person-modal");
+  m.innerHTML = `<button class="detail-close" id="person-close">✕</button><div class="empty-state">Загрузка…</div>`;
+  $("#person-overlay").classList.add("show");
+  $("#person-close").onclick = closePerson;
+  try {
+    const d = await tmdbGet(`/person/${pid}`, { append_to_response: "combined_credits" });
+    let bio = d.biography;
+    if (!bio) { try { bio = (await tmdbGet(`/person/${pid}`, { language: "en-US" })).biography; } catch {} }
+    const seen = new Set();
+    const films = (d.combined_credits?.cast || []).filter(c => c.poster_path).sort((a, b) => b.popularity - a.popularity)
+      .filter(c => { const k = c.media_type + c.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 18);
+    const lib = c => Object.entries(titles).find(([_, t]) => t.tmdbId === c.id && tmdbTypeOf(t) === (c.media_type === "tv" ? "tv" : "movie"));
+    m.innerHTML = `<button class="detail-close" id="person-close">✕</button>
+      <div class="person-head">
+        ${d.profile_path ? `<img src="${TMDB_P}${d.profile_path}" alt="">` : ""}
+        <div style="flex:1; min-width:200px;">
+          <h2>${esc(d.name)}</h2>
+          <div style="color:var(--muted); font-size:13px; margin-top:4px;">${[d.birthday, d.place_of_birth].filter(Boolean).map(esc).join(" · ")}</div>
+          <div class="person-bio">${esc(bio || "Биографии пока нет.")}</div>
+        </div>
+      </div>
+      <div class="cast-title" style="padding:6px 30px 0;">Где снимался(ась)</div>
+      <div class="person-films">${films.map(c => { const l = lib(c); return `
+        <div class="pf focusable ${l ? "lib" : ""}" tabindex="0" ${l ? `data-lib="${l[0]}"` : ""}>
+          <img src="${TMDB_P}${c.poster_path}" loading="lazy" alt="">${esc(c.title || c.name)}${l ? "<small>Есть в AKUR</small>" : ""}
+        </div>`; }).join("")}</div>`;
+    $("#person-close").onclick = closePerson;
+    m.querySelectorAll(".pf.lib").forEach(el => el.onclick = () => { closePerson(); openDetails(el.dataset.lib, false); });
+  } catch (e) {
+    m.innerHTML = `<button class="detail-close" id="person-close">✕</button><div class="empty-state">Не удалось загрузить данные об актёре</div>`;
+    $("#person-close").onclick = closePerson;
+  }
+}
+function closePerson(){ $("#person-overlay").classList.remove("show"); }
+$("#person-overlay").addEventListener("click", e => { if (e.target.id === "person-overlay") closePerson(); });
+
 
 let currentUser = null;
 let isAnon = true;
@@ -634,9 +742,10 @@ function openDetails(id, autoplay){
         ${t.forKids ? `<span>👶 Детям</span>`:""}
       </div>
       <div class="detail-desc">${esc(t.description||"Без описания")}</div>
-      ${actorNames ? `<div class="detail-actors">🎭 В ролях: ${esc(actorNames)}</div>` : ""}
+      <div id="detail-cast-box">${actorNames ? `<div class="detail-actors">🎭 В ролях: ${esc(actorNames)}</div>` : ""}</div>
       <div class="detail-actions">
         <button class="btn btn-primary" id="detail-play">▶ Смотреть</button>
+        <button class="btn btn-secondary" id="detail-trailer" style="display:none;">🎞 Трейлер</button>
         <button class="btn btn-secondary" id="detail-bookmark">${bookmarked ? "✓ В закладках" : "🔖 В закладки"}</button>
         ${isAdmin && t.type === "movie" ? `<button class="btn btn-secondary" id="detail-edit">✏️ Изменить</button>` : ""}
       </div>
@@ -644,7 +753,9 @@ function openDetails(id, autoplay){
     </div>`;
   $("#detail-modal").innerHTML = body;
   $("#detail-overlay").classList.add("show");
+  $("#detail-modal").dataset.id = id;
   $("#detail-close").onclick = closeDetails;
+  loadTmdbExtras(id, t);
   $("#detail-bookmark").onclick = () => toggleWatchlist(id);
   if (isAdmin && t.type === "movie") {
     const editBtn = $("#detail-edit");
@@ -831,6 +942,7 @@ document.addEventListener("keydown", (e) => {
   }
   if ($("#rate-overlay").classList.contains("show")) return;
   if (e.key === "Escape") {
+    if ($("#person-overlay").classList.contains("show")) { closePerson(); return; }
     if ($("#detail-overlay").classList.contains("show")) closeDetails();
     else if ($("#gate-overlay").classList.contains("show")) $("#gate-overlay").classList.remove("show");
     return;

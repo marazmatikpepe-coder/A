@@ -8,15 +8,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0c; --bg2:#111114; --panel:#15151a; --line:#232329;
-    --text:#f2f2f4; --muted:#8a8a92; --accent:#d63447; --accent2:#e8495c;
+    --bg:#07120d; --bg2:#111114; --panel:#15151a; --line:#1d3328;
+    --text:#f2f2f4; --muted:#8a8a92; --accent:#2f9e6b; --accent2:#4cc58a;
     --ok:#2fbf71; --radius:16px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{
     min-height:100vh; font-family:'Manrope',sans-serif; color:var(--text);
     background:
-      radial-gradient(1100px 700px at 85% -10%, rgba(214,52,71,.16), transparent 60%),
+      radial-gradient(1100px 700px at 85% -10%, rgba(47,158,107,.16), transparent 60%),
       radial-gradient(900px 600px at 0% 110%, rgba(60,60,90,.18), transparent 60%),
       var(--bg);
     display:flex; align-items:center; justify-content:center; padding:24px;
@@ -37,11 +37,11 @@
   .field{margin-bottom:14px;}
   label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
   input{
-    width:100%; padding:13px 14px; background:#0d0d10; border:1.5px solid var(--line);
+    width:100%; padding:13px 14px; background:#0a1810; border:1.5px solid var(--line);
     border-radius:10px; color:var(--text); font-size:15px; font-family:inherit; outline:none;
     transition:border-color .15s, box-shadow .15s;
   }
-  input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(214,52,71,.15);}
+  input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(47,158,107,.15);}
   .btn{
     width:100%; padding:14px; border:none; border-radius:10px; font-weight:700; font-size:15px;
     cursor:pointer; transition:transform .12s, filter .15s; font-family:inherit;
@@ -50,7 +50,7 @@
   .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; margin-top:6px;}
   .btn-primary:hover{filter:brightness(1.08);}
   .btn-ghost{background:transparent; color:var(--text); border:1.5px solid var(--line); margin-top:10px;}
-  .btn-ghost:hover{border-color:#3a3a42; background:#141417;}
+  .btn-ghost:hover{border-color:#34584a; background:#141417;}
   .btn[disabled]{opacity:.55; cursor:not-allowed;}
   .row-links{display:flex; justify-content:space-between; margin-top:16px; font-size:13px;}
   .row-links a, .row-links span{color:var(--muted); cursor:pointer; text-decoration:none;}
@@ -58,9 +58,9 @@
   .divider{display:flex; align-items:center; gap:12px; margin:20px 0; color:var(--muted); font-size:12px;}
   .divider::before, .divider::after{content:""; flex:1; height:1px; background:var(--line);}
   .msg{margin-top:14px; font-size:13.5px; padding:10px 12px; border-radius:8px; display:none; line-height:1.4;}
-  .msg.err{background:rgba(214,52,71,.12); color:#ff8a95; border:1px solid rgba(214,52,71,.3); display:block;}
+  .msg.err{background:rgba(230,70,70,.12); color:#ff8a95; border:1px solid rgba(230,70,70,.3); display:block;}
   .msg.ok{background:rgba(47,191,113,.12); color:#7cf0ab; border:1px solid rgba(47,191,113,.3); display:block;}
-  .tabs{display:flex; background:#0d0d10; border:1px solid var(--line); border-radius:10px; padding:4px; margin-bottom:22px;}
+  .tabs{display:flex; background:#0a1810; border:1px solid var(--line); border-radius:10px; padding:4px; margin-bottom:22px;}
   .tab{flex:1; text-align:center; padding:9px; border-radius:8px; font-size:13.5px; font-weight:700; color:var(--muted); cursor:pointer; transition:.15s;}
   .tab.active{background:var(--panel); color:var(--text); box-shadow:0 4px 12px rgba(0,0,0,.3);}
   .view{display:none;}
@@ -70,10 +70,11 @@
   .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5;}
   @media (max-width:480px){ .card{padding:24px 20px;} }
 </style>
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="mark"><i></i>AKUR</span></div>
+  <div class="brand"><span class="mark"><img src="logo.png" alt="" style="width:46px;height:46px;vertical-align:middle;margin-right:8px">AKUR</span></div>
   <div class="card">
 
     <!-- ВХОД / РЕГИСТРАЦИЯ -->
