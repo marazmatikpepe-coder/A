@@ -229,6 +229,11 @@ html.kbd .star:focus{transform:scale(1.25);}
 }
 .detail-trailer-frame{width:100%; aspect-ratio:16/8; border:0; display:block; background:#000;}
 
+.season-select-row{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 10px;}
+.season-chip{background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer;}
+.season-chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+.season-chip:hover{border-color:var(--accent2);}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:900px){
   :root{--sidebar-w:0px;}
@@ -860,11 +865,12 @@ function renderSeasonPicker(seriesId, silent){
   const seasonEntries = Object.entries(seasons).filter(([_,s]) => s.seriesId === seriesId).sort((a,b)=>a[1].seasonNumber-b[1].seasonNumber);
   if (!seasonEntries.length){ box.innerHTML = `<p style="color:var(--muted); font-size:13.5px; margin-top:14px;">Сезоны пока не добавлены</p>`; return; }
   box.innerHTML = `
-    <div class="season-select-row">
-      <select id="season-select">${seasonEntries.map(([id,s]) => `<option value="${id}">Сезон ${s.seasonNumber}</option>`).join("")}</select>
-    </div>
+    <div class="season-select-row" id="season-chips">${seasonEntries.map(([id,s], i) => `<button type="button" class="season-chip${i===0?" active":""}" data-sid="${id}">Сезон ${s.seasonNumber}</button>`).join("")}</div>
     <div id="episodes-box"></div>`;
-  $("#season-select").addEventListener("change", (e) => renderEpisodeList(e.target.value));
+  box.querySelectorAll(".season-chip").forEach(b => b.onclick = () => {
+    box.querySelectorAll(".season-chip").forEach(x => x.classList.toggle("active", x === b));
+    renderEpisodeList(b.dataset.sid);
+  });
   renderEpisodeList(seasonEntries[0][0]);
 }
 function renderEpisodeList(seasonId){
@@ -1002,6 +1008,7 @@ function playEpisode(episodeId, seasonId, startSec){
 }
 $("#close-player-btn").addEventListener("click", closePlayer);
 function closePlayer(){
+  videoMode = false;
   stopTracker();
   $("#player-overlay").classList.remove("show");
   $("#player-iframe").src = "";
@@ -1128,7 +1135,22 @@ window.TVNAV.longPress = el => {
 history.replaceState({ r: 1 }, ""); history.pushState({ s: 1 }, "");
 addEventListener("popstate", () => { if (closeTop() || goHome()) history.pushState({ s: 1 }, ""); });
 document.addEventListener("focusin", e => { const s = e.target.closest && e.target.closest(".star"); if (s) highlightStars(Number(s.dataset.v)); });
+// плеер/трейлер в iframe любят забирать фокус, и тогда пульт «умирает» — возвращаем фокус на кнопки страницы
+let videoMode = false;
+function keepFocus(){
+  setTimeout(() => {
+    if (videoMode) return;
+    const af = document.activeElement;
+    if (!af || af.tagName !== "IFRAME") return;
+    if ($("#player-overlay").classList.contains("show")) $("#close-player-btn").focus();
+    else if ($("#detail-overlay").classList.contains("show")) { const b = $("#detail-play"); if (b) b.focus(); }
+  }, 60);
+}
+$("#player-iframe").addEventListener("load", keepFocus);
+addEventListener("blur", keepFocus);
+addEventListener("focus", () => { videoMode = false; });
 $("#focus-video-btn").onclick = () => {
+  videoMode = true;
   const f = $("#player-iframe"); f.focus(); try { f.contentWindow.focus(); } catch (x) {}
   showToast("Теперь пульт управляет плеером видео. «Назад» закроет его");
 };

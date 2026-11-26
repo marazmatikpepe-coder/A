@@ -2,7 +2,7 @@
 (function () {
   var H = window.TVNAV = window.TVNAV || {};
   var SEL = '.focusable,button,a[href],input:not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])';
-  var AUTO = '.card,.nav-item,.genre-chip,.episode-row,.star,.ctx-item,.rate-skip,.hero-dot,.hero-nav-arrow,.cast-card,.pf,#user-chip,.tab,a.back,.focusable';
+  var AUTO = '.card,.nav-item,.genre-chip,.season-chip,.episode-row,.star,.ctx-item,.rate-skip,.hero-dot,.hero-nav-arrow,.cast-card,.pf,#user-chip,.tab,a.back,.focusable';
   var root = document.documentElement, lastKey = 0, mx = 0, my = 0, pending = null;
 
   function setKbd(on){ root.classList.toggle('kbd', on); }
@@ -16,15 +16,52 @@
 
   function vis(el){ return el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && !el.disabled; }
   function cands(scope){ return Array.prototype.filter.call(scope.querySelectorAll(SEL), function (el) { return vis(el) && el.tabIndex !== -1; }); }
+
+  // Коды клавиш: буквы НЕ должны попадать сюда (например keyCode 66 — это клавиша B).
+  // Числовые коды используем только если браузер не дал нормальное имя клавиши (key пустой или Unidentified).
+  function noName(e){ return !e.key || e.key === 'Unidentified'; }
   function dirOf(e){
     var m = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' }[e.key];
-    return m || { 37:'left', 38:'up', 39:'right', 40:'down', 19:'up', 20:'down', 21:'left', 22:'right' }[e.keyCode];
+    if (m) return m;
+    if (noName(e)) return { 37:'left', 38:'up', 39:'right', 40:'down', 19:'up', 20:'down', 21:'left', 22:'right' }[e.keyCode];
   }
-  function isOK(e){ return e.key === 'Enter' || e.key === 'Select' || e.key === 'NumpadEnter' || [13, 23, 66].indexOf(e.keyCode) > -1; }
-  function isBack(e){ return e.key === 'Backspace' || e.key === 'Escape' || e.key === 'BrowserBack' || e.key === 'GoBack' || [4, 27, 166, 461, 10009].indexOf(e.keyCode) > -1; }
-  function focusEl(el){
+  function isOK(e){ return e.key === 'Enter' || e.key === 'Select' || e.key === 'NumpadEnter' || (noName(e) && [13, 23, 66].indexOf(e.keyCode) > -1); }
+  function isBack(e){
+    return e.key === 'Backspace' || e.key === 'Escape' || e.key === 'BrowserBack' || e.key === 'GoBack' || e.key === 'XF86Back' ||
+      [4, 166, 461, 10009].indexOf(e.keyCode) > -1;
+  }
+
+  // ---- прокрутка: лента двигается сама по горизонтали, страница — только когда нужно ----
+  function scrollable(el, axis){
+    for (var p = el.parentElement; p && p !== document.body && p !== root; p = p.parentElement) {
+      var cs = getComputedStyle(p), o = axis === 'x' ? cs.overflowX : cs.overflowY;
+      if ((o === 'auto' || o === 'scroll') && (axis === 'x' ? p.scrollWidth > p.clientWidth + 2 : p.scrollHeight > p.clientHeight + 2)) return p;
+    }
+    return null;
+  }
+  function inFixed(el){
+    for (var p = el; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).position === 'fixed') return true;
+    return false;
+  }
+  function reveal(el, dir){
+    if (inFixed(el)) return;
+    var r = el.getBoundingClientRect();
+    var sx = scrollable(el, 'x');
+    if (sx) {
+      var s = sx.getBoundingClientRect();
+      sx.scrollTo({ left: sx.scrollLeft + (r.left + r.width / 2) - (s.left + s.width / 2), behavior: 'smooth' });
+    }
+    var sy = scrollable(el, 'y');
+    var view = sy ? sy.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+    var out = r.top < view.top + 40 || r.bottom > view.bottom - 40;
+    if (dir === 'up' || dir === 'down' || out) {
+      var delta = (r.top + r.height / 2) - (view.top + (view.bottom - view.top) / 2);
+      if (sy) sy.scrollBy({ top: delta, behavior: 'smooth' }); else scrollBy({ top: delta, behavior: 'smooth' });
+    }
+  }
+  function focusEl(el, dir){
     try { el.focus({ preventScroll: true }); } catch (x) { el.focus(); }
-    try { el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); } catch (x) {}
+    reveal(el, dir);
   }
   function pickStart(list){
     var pref = list.filter(function (el) { return el.matches('[data-autofocus],.btn-primary'); })[0];
@@ -32,40 +69,60 @@
     var h = innerHeight;
     return list.filter(function (el) { var r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < h; })[0] || list[0];
   }
+  function gap(a0, a1, b0, b1){ return b0 >= a1 ? b0 - a1 : (b1 <= a0 ? a0 - b1 : 0); }
+
   function move(dir){
     var scope = (H.scope && H.scope()) || document.body, list = cands(scope);
     if (!list.length) return;
     var cur = document.activeElement;
-    if (!cur || cur === document.body || list.indexOf(cur) < 0) { focusEl(pickStart(list)); return; }
-    var a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2, best = null, bs = Infinity;
+    if (!cur || cur === document.body || list.indexOf(cur) < 0) { focusEl(pickStart(list), dir); return; }
+    var a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
     var vertical = dir === 'up' || dir === 'down';
     function reg(el){ var r = el.closest('[data-tv-region]'); return r ? r.getAttribute('data-tv-region') : ''; }
     var curReg = reg(cur);
-    function scan(needOverlap){
+
+    function scan(sameRowOnly){
+      var best = null, bs = Infinity;
       list.forEach(function (el) {
         if (el === cur || cur.contains(el) || el.contains(cur)) return;
-        var r = el.getBoundingClientRect(), dx = r.left + r.width / 2 - ax, dy = r.top + r.height / 2 - ay, p, s, ov;
-        if (dir === 'right') { if (dx <= 2) return; p = dx; s = Math.abs(dy); ov = r.bottom > a.top && r.top < a.bottom; }
-        else if (dir === 'left') { if (dx >= -2) return; p = -dx; s = Math.abs(dy); ov = r.bottom > a.top && r.top < a.bottom; }
-        else if (dir === 'down') { if (dy <= 2) return; p = dy; s = Math.abs(dx); ov = r.right > a.left && r.left < a.right; }
-        else { if (dy >= -2) return; p = -dy; s = Math.abs(dx); ov = r.right > a.left && r.left < a.right; }
-        if (needOverlap && !ov) return;
-        if (!needOverlap && vertical && reg(el) !== curReg) return;
-        if (ov) s *= 0.25;
-        var score = p + s * 2.5;
+        var r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, p, perp;
+        if (dir === 'right') { if (cx - ax <= 2) return; p = Math.max(0, r.left - a.right) + 0.1 * (cx - ax); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
+        else if (dir === 'left') { if (cx - ax >= -2) return; p = Math.max(0, a.left - r.right) + 0.1 * (ax - cx); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
+        else if (dir === 'down') { if (cy - ay <= 2) return; p = Math.max(0, r.top - a.bottom) + 0.1 * (cy - ay); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
+        else { if (cy - ay >= -2) return; p = Math.max(0, a.top - r.bottom) + 0.1 * (ay - cy); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
+        var overlap = vertical ? gap(a.left, a.right, r.left, r.right) === 0 : gap(a.top, a.bottom, r.top, r.bottom) === 0;
+        if (sameRowOnly && !overlap) return;
+        if (vertical && !overlap && reg(el) !== curReg) return;
+        var score = p + perp;
         if (score < bs) { bs = score; best = el; }
       });
+      return best;
     }
-    if (vertical) { scan(true); if (!best) scan(false); } else scan(false);
-    if (best) focusEl(best);
-    else if (dir === 'down' || dir === 'up') scrollBy({ top: dir === 'down' ? 240 : -240, behavior: 'smooth' });
+    var best = scan(!vertical);              // по горизонтали сначала ищем в той же ленте/строке
+    if (!best && !vertical) {
+      var sib = list.filter(function (el) { return el.parentElement === cur.parentElement; });
+      if (sib.length > 1 && dir === 'right') {  // бесконечная лента: после последнего — первый
+        sib.sort(function (x, y) { return x.getBoundingClientRect().left - y.getBoundingClientRect().left; });
+        best = sib[0];
+      } else best = scan(false);               // например влево из первой карточки — в боковое меню
+      if (!best && sib.length > 1) {           // влево без меню — тоже по кругу
+        sib.sort(function (x, y) { return x.getBoundingClientRect().left - y.getBoundingClientRect().left; });
+        best = sib[sib.length - 1];
+      }
+    }
+    if (!best && vertical) best = scan(false);
+    if (best) focusEl(best, dir);
+    else if (vertical) scrollBy({ top: dir === 'down' ? 240 : -240, behavior: 'smooth' });
   }
   H.move = move; H.cands = cands;
   H.focusFirst = function (container) { var l = cands(container); if (l.length) { try { pickStart(l).focus({ preventScroll: true }); } catch (x) {} } };
 
   addEventListener('keydown', function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
     var a = document.activeElement, tag = a ? a.tagName : '';
     var typing = tag === 'TEXTAREA' || (tag === 'INPUT' && !/^(button|checkbox|radio|submit)$/.test(a.type));
+    // при вводе текста буквы и цифры никогда не трогаем
+    if (typing && e.key && e.key.length === 1) return;
     var dir = dirOf(e), back = isBack(e), ok = isOK(e);
     if (dir || back || ok) { lastKey = Date.now(); setKbd(true); }
     if (back) {
@@ -77,10 +134,6 @@
     if (dir) {
       if (typing && (dir === 'left' || dir === 'right')) return;
       e.preventDefault();
-      if (tag === 'SELECT' && (dir === 'left' || dir === 'right')) {
-        a.selectedIndex = Math.max(0, Math.min(a.options.length - 1, a.selectedIndex + (dir === 'right' ? 1 : -1)));
-        a.dispatchEvent(new Event('change', { bubbles: true })); return;
-      }
       move(dir); return;
     }
     if (ok) {
