@@ -308,13 +308,36 @@ VK Video: https://vk.com/video-12345_67890
         <h2>🔄 Обновить все фильмы и сериалы с TMDB</h2>
         <p style="color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px;">
           Одна кнопка для всей базы: у каждого фильма и сериала подберётся <b>русский постер</b> (сохраняется ссылка на TMDB, ImgBB больше не нужен),
-          найдётся <b>трейлер</b>, а там, где нет TMDB ID, он определится по названию и году (сомнительные совпадения пропускаются).
+          найдётся <b>трейлер</b> и <b>задник</b> (широкая картинка для окна фильма и главной), а там, где нет TMDB ID, он определится по названию и году (сомнительные совпадения пропускаются).
           Старый постер сохраняется в поле <code>posterBackup</code>. Фильмы, серии и ссылки на видео не удаляются и не меняются.
         </p>
         <div class="checkbox-row"><input type="checkbox" id="refresh-dry"><label for="refresh-dry">Только проверить (ничего не записывать в базу)</label></div>
         <button class="submit" type="button" id="refresh-btn">Обновить постеры и трейлеры</button>
         <div class="msg" id="refresh-msg"></div>
         <div id="refresh-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
+      </div>
+
+      <!-- Быстрое добавление сериала -->
+      <div class="panel" style="grid-column:1/-1; margin-top:26px; border-color:rgba(47,158,107,.45);">
+        <h2>⚡ Быстро добавить сериал</h2>
+        <p style="color:var(--muted); font-size:13px; line-height:1.7; margin-bottom:12px;">
+          Название, год и ссылки — остальное (постер, задник, трейлер, жанры, актёры, студия, названия серий) подтянется с TMDB.
+          Два способа, можно смешивать по сезонам:<br>
+          <b>1. Сезон одним видео</b> — тайм-коды серий посчитаются автоматически по длительности серий из TMDB (приблизительно, потом можно поправить в разделе «Серии»).<br>
+          <b>2. Каждая серия отдельной ссылкой.</b><br>
+          Можно вставить сразу несколько сериалов подряд. Уже существующие сезоны пропускаются.
+        </p>
+        <textarea id="qs-text" rows="9" style="font-family:monospace;" placeholder="Чернобыль (2019)
+сезон 1 (2019) https://vk.com/video-123_456
+
+Во все тяжкие (2008)
+сезон 1 (2008)
+серия 1 https://vk.com/video-1_1
+серия 2 https://vk.com/video-1_2"></textarea>
+        <div class="checkbox-row" style="margin-top:10px;"><input type="checkbox" id="qs-dry"><label for="qs-dry">Только проверить (ничего не записывать)</label></div>
+        <button class="submit" type="button" id="qs-btn">Добавить сериал(ы)</button>
+        <div class="msg" id="qs-msg"></div>
+        <div id="qs-log" style="margin-top:16px; max-height:420px; overflow-y:auto; background:#0a1810; border:1px solid var(--line); border-radius:9px; padding:14px; font-family:monospace; font-size:12.5px; line-height:1.9; display:none;"></div>
       </div>
     </div>
 
@@ -1154,6 +1177,7 @@ $("#import-start-btn").addEventListener("click", async () => {
         actorIds,
         forKids: genre === "Семейный" || genre === "Мультфильм" || genre === "Аниме",
         tmdbId: result.id, tmdbType: "movie",
+        backdrop: details.backdrop_path ? "https://image.tmdb.org/t/p/w1280" + details.backdrop_path : "",
         trailer: ((details.videos?.results||[]).filter(v=>v.site==="YouTube").find(v=>v.type==="Trailer") || (details.videos?.results||[]).find(v=>v.site==="YouTube"))?.key || "",
         ratingSum: 0, ratingCount: 0, rating: 0,
         createdAt: Date.now()
@@ -1244,6 +1268,8 @@ $("#refresh-btn").addEventListener("click", async () => {
           rlog(`🖼 «${t.title}» — новый постер (${p.lang})`);
         } else same++;
       } else rlog(`⚠️ «${t.title}» — постеров на TMDB нет, оставляю прежний`, "#e8b74b");
+      const bdp = await pickBackdropPath(type, tid);
+      if (bdp) { const bu = "https://image.tmdb.org/t/p/w1280" + bdp; if (bu !== t.backdrop) upd.backdrop = bu; }
       if (!t.trailer) { const k = await pickTrailerKey(type, tid); if (k) { upd.trailer = k; trailers++; } }
       if (Object.keys(upd).length) { if (!dry) await update(ref(db, `titles/${id}`), upd); changed++; }
       await sleep(120);
@@ -1254,6 +1280,147 @@ $("#refresh-btn").addEventListener("click", async () => {
   if (!dry) await loadAll();
 });
 
+
+// ================= БЫСТРОЕ ДОБАВЛЕНИЕ СЕРИАЛА =================
+const QS_P = "https://image.tmdb.org/t/p/";
+const qsFmt = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h ? `${h} ч ${m} мин` : `${m} мин`; };
+function qsLog(msg, color){
+  const box = $("#qs-log"); box.style.display = "block";
+  const d = document.createElement("div"); if (color) d.style.color = color; d.textContent = msg;
+  box.appendChild(d); box.scrollTop = box.scrollHeight;
+}
+async function pickBackdropPath(type, id){
+  try {
+    const d = await tmdbFetch(`/${type}/${id}/images`, { include_image_language: "null,ru", language: "ru" });
+    const bs = (d.backdrops || []).filter(b => !b.iso_639_1);
+    const list = bs.length ? bs : (d.backdrops || []);
+    list.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.width || 0) - (a.width || 0));
+    return list[0] ? list[0].file_path : null;
+  } catch (e) { return null; }
+}
+function parseQuickSeries(text){
+  const out = []; let s = null, cur = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    let m;
+    if ((m = line.match(/^сезон\s*(\d+)\s*(?:\(\s*(\d{4})\s*\))?\s*(\S*)$/i))) {
+      if (!s) throw new Error(`Строка «${line}» стоит раньше названия сериала`);
+      cur = { number: +m[1], year: m[2] ? +m[2] : null, url: m[3] || "", eps: [] }; s.seasons.push(cur); continue;
+    }
+    if ((m = line.match(/^сери[яи]\s*(\d+)\s+(\S+)$/i))) {
+      if (!cur) throw new Error(`Серия «${line}» стоит раньше строки «сезон N»`);
+      if (cur.url) throw new Error(`Сезон ${cur.number}: нельзя одновременно давать ссылку на весь сезон и ссылки на серии`);
+      cur.eps.push({ n: +m[1], url: m[2] }); continue;
+    }
+    if (/^(сезон|сери)/i.test(line)) throw new Error(`Не понял строку: «${line}»`);
+    m = line.match(/^(?:сериал\s+)?(.*?)\s*\(\s*(\d{4})\s*\)\s*$/i);
+    s = { title: (m ? m[1] : line.replace(/^сериал\s+/i, "")).trim(), year: m ? +m[2] : null, seasons: [] };
+    out.push(s); cur = null;
+  }
+  for (const x of out) {
+    if (!x.seasons.length) throw new Error(`У сериала «${x.title}» нет сезонов`);
+    for (const se of x.seasons) if (!se.url && !se.eps.length) throw new Error(`«${x.title}», сезон ${se.number}: нет ни ссылки на сезон, ни серий`);
+  }
+  return out;
+}
+function qsGenres(tv){
+  const map = { "боевик и приключения": ["Боевик", "Приключения"], "нф и фэнтези": ["Фантастика", "Фэнтези"], "война и политика": ["Драма"], "детский": ["Семейный"], "реалити-шоу": ["Драма"], "мыльная опера": ["Мелодрама"], "новости": ["Документальный"], "ток-шоу": ["Комедия"] };
+  const out = []; const add = g => { if (GENRES.includes(g) && !out.includes(g)) out.push(g); };
+  for (const g of tv.genres || []) {
+    const k = (g.name || "").trim().toLowerCase();
+    if (map[k]) map[k].forEach(add); else if (TMDB_GENRE_MAP[k]) add(TMDB_GENRE_MAP[k]);
+  }
+  return (out.length ? out : [GENRES.includes("Драма") ? "Драма" : GENRES[0]]).slice(0, 5);
+}
+async function quickAddSeries(sx, dry){
+  const sp = { query: sx.title }; if (sx.year) sp.first_air_date_year = sx.year;
+  let res = (await tmdbFetch("/search/tv", sp)).results || [];
+  if (!res.length && sx.year) res = ((await tmdbFetch("/search/tv", { query: sx.title })).results || []).filter(r => Math.abs(Number((r.first_air_date || "0").slice(0, 4)) - sx.year) <= 1);
+  if (!res.length) { qsLog(`❌ «${sx.title}» не найден на TMDB`, "#ff8a95"); return false; }
+  const tv = await tmdbFetch(`/tv/${res[0].id}`, { append_to_response: "credits,videos", include_video_language: "ru,en" });
+  const tvYear = Number((tv.first_air_date || "").slice(0, 4)) || null;
+  qsLog(`🔗 «${sx.title}» → TMDB «${tv.name}» (${tvYear || "?"}), сезонов на TMDB: ${tv.number_of_seasons}`, "#7cf0ab");
+  const updates = {};
+  let seriesId = Object.keys(series).find(i => series[i].tmdbId === tv.id)
+    || Object.keys(series).find(i => normalizeName(series[i].title) === normalizeName(tv.name) && Number(series[i].year) === tvYear);
+  if (seriesId) qsLog("  ℹ️ сериал уже есть в базе, добавлю только новые сезоны", "#e8b74b");
+  else {
+    const studioName = (tv.networks || [])[0]?.name || (tv.production_companies || [])[0]?.name || "";
+    let studioId = null;
+    if (studioName) {
+      studioId = Object.keys(studios).find(i => normalizeName(studios[i].name) === normalizeName(studioName)) || null;
+      if (!studioId && !dry) { const r = push(ref(db, "studios")); await set(r, { name: studioName, createdAt: Date.now() }); studioId = r.key; studios[studioId] = { name: studioName }; }
+    }
+    const actorIds = [];
+    for (const person of (tv.credits?.cast || []).slice(0, 8)) {
+      const nm = dry ? person.name : await resolveEnglishActorName(person);
+      let aid = Object.keys(actors).find(i => normalizeName(actors[i].name) === normalizeName(nm));
+      if (!aid && !dry) { const r = push(ref(db, "actors")); await set(r, { name: nm, createdAt: Date.now() }); aid = r.key; actors[aid] = { name: nm }; }
+      if (aid) actorIds.push(aid);
+    }
+    const pp = await pickPosterPath("tv", tv.id);
+    const bd = (await pickBackdropPath("tv", tv.id)) || tv.backdrop_path;
+    const yt = (tv.videos?.results || []).filter(v => v.site === "YouTube");
+    const trailer = (yt.find(v => v.type === "Trailer") || yt.find(v => v.type === "Teaser"))?.key || (await pickTrailerKey("tv", tv.id)) || "";
+    seriesId = push(ref(db, "titles")).key;
+    updates[`titles/${seriesId}`] = {
+      type: "series", title: tv.name, altTitle: tv.original_name && tv.original_name !== tv.name ? tv.original_name : null,
+      studioId, year: tvYear || sx.year || null, description: tv.overview || "",
+      poster: pp ? QS_P + "w780" + pp.path : (tv.poster_path ? QS_P + "w780" + tv.poster_path : ""),
+      backdrop: bd ? QS_P + "w1280" + bd : "", genres: qsGenres(tv), actorIds, forKids: false,
+      ratingSum: 0, ratingCount: 0, createdAt: Date.now(), tmdbId: tv.id, tmdbType: "tv", trailer
+    };
+    qsLog(`  ➕ карточка сериала: ${qsGenres(tv).join(", ")}; актёров ${actorIds.length}; трейлер ${trailer ? "есть" : "нет"}`);
+  }
+  const have = new Set(Object.values(seasons).filter(s => s.seriesId === seriesId).map(s => s.seasonNumber));
+  const defMin = (tv.episode_run_time || [])[0] || tv.last_episode_to_air?.runtime || 45;
+  let nSeasons = 0, nEps = 0;
+  for (const se of sx.seasons) {
+    if (have.has(se.number)) { qsLog(`  ⚠️ сезон ${se.number} уже есть — пропускаю`, "#e8b74b"); continue; }
+    let tmdbEps = [], info = null;
+    try { info = await tmdbFetch(`/tv/${tv.id}/season/${se.number}`); tmdbEps = info.episodes || []; }
+    catch (e) { qsLog(`  ⚠️ сезон ${se.number}: TMDB не вернул список серий`, "#e8b74b"); }
+    const sid = push(ref(db, "seasons")).key;
+    const base = { seriesId, seasonNumber: se.number, year: se.year || Number((info?.air_date || "").slice(0, 4)) || null, createdAt: Date.now() };
+    if (se.url) {
+      if (!tmdbEps.length) { qsLog(`  ❌ сезон ${se.number}: на TMDB нет серий, тайм-коды считать не из чего`, "#ff8a95"); continue; }
+      updates[`seasons/${sid}`] = { ...base, seasonType: "timeline", videoUrl: se.url };
+      let cum = 0;
+      tmdbEps.forEach(ep => {
+        const dur = Math.round((ep.runtime || defMin) * 60), eid = push(ref(db, "episodes")).key;
+        updates[`episodes/${eid}`] = { seasonId: sid, episodeNumber: ep.episode_number, title: ep.name || `Серия ${ep.episode_number}`, startTime: cum, endTime: cum + dur, createdAt: Date.now() };
+        cum += dur; nEps++;
+      });
+      qsLog(`  🎞 сезон ${se.number}: одно видео, ${tmdbEps.length} серий, всего ≈ ${qsFmt(cum)} (тайм-коды по длительности серий из TMDB)`, "#7cf0ab");
+    } else {
+      updates[`seasons/${sid}`] = { ...base, seasonType: "episodes" };
+      se.eps.sort((a, b) => a.n - b.n).forEach(e => {
+        const te = tmdbEps.find(x => x.episode_number === e.n), eid = push(ref(db, "episodes")).key;
+        updates[`episodes/${eid}`] = { seasonId: sid, episodeNumber: e.n, title: te?.name || `Серия ${e.n}`, videoUrl: e.url, duration: te?.runtime || null, createdAt: Date.now() };
+        nEps++;
+      });
+      qsLog(`  🎞 сезон ${se.number}: ${se.eps.length} серий по отдельным ссылкам${tmdbEps.length && tmdbEps.length !== se.eps.length ? ` (на TMDB в сезоне ${tmdbEps.length})` : ""}`, "#7cf0ab");
+    }
+    nSeasons++;
+  }
+  if (!nSeasons && !Object.keys(updates).length) return false;
+  if (!dry) await update(ref(db), updates);
+  qsLog(`  ✅ ${dry ? "будет добавлено" : "добавлено"}: сезонов ${nSeasons}, серий ${nEps}`, "#7cf0ab");
+  return true;
+}
+$("#qs-btn").addEventListener("click", async () => {
+  const btn = $("#qs-btn"), dry = $("#qs-dry").checked;
+  $("#qs-log").innerHTML = "";
+  let list;
+  try { list = parseQuickSeries($("#qs-text").value); } catch (e) { showMsg($("#qs-msg"), e.message, false); return; }
+  if (!list.length) { showMsg($("#qs-msg"), "Вставьте текст в формате из примера", false); return; }
+  btn.disabled = true; btn.textContent = "Добавляю…";
+  let ok = 0, bad = 0;
+  for (const sx of list) { try { (await quickAddSeries(sx, dry)) ? ok++ : bad++; } catch (e) { qsLog(`❌ «${sx.title}»: ${e.message}`, "#ff8a95"); bad++; } }
+  btn.disabled = false; btn.textContent = "Добавить сериал(ы)";
+  showMsg($("#qs-msg"), `${dry ? "Проверка: " : ""}сериалов успешно ${ok}, с ошибками ${bad}`, bad === 0);
+  if (!dry) await loadAll();
+});
 
 // Функция открытия формы редактирования фильма (заполняет форму «Добавить фильм» существующими данными)
 function openEditMovieModal(movieId) {

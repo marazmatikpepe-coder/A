@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AKUR — стриминг</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://image.tmdb.org">
+<link rel="preconnect" href="https://api.themoviedb.org">
+<link rel="preconnect" href="https://vk.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -208,6 +211,24 @@ html.kbd .card:hover:not(:focus){transform:none; border-color:var(--line); box-s
 html.kbd .btn:hover, html.kbd .nav-item:hover{filter:none;}
 html.kbd .star:focus{transform:scale(1.25);}
 
+/* ---------- SPLASH / HISTORY / TRAILER ---------- */
+#splash{position:fixed; inset:0; z-index:9999; background:var(--bg); display:grid; place-items:center; pointer-events:none; animation:splashOut .3s ease-out forwards;}
+#splash img{width:84px; height:84px; object-fit:contain; animation:splashPop .3s ease-out;}
+@keyframes splashOut{0%,60%{opacity:1; visibility:visible;} 100%{opacity:0; visibility:hidden;}}
+@keyframes splashPop{from{transform:scale(.7); opacity:0;} to{transform:scale(1); opacity:1;}}
+.card-resume{font-size:10.5px; font-weight:800; color:var(--accent2); padding:6px 10px 0;}
+.card-progress{height:4px; background:rgba(255,255,255,.15); margin:6px 10px 0; border-radius:2px; overflow:hidden;}
+.card-progress i{display:block; height:100%; background:var(--accent2);}
+.detail-hero{position:relative; border-radius:18px 18px 0 0; overflow:hidden;}
+.trailer-cta{position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:rgba(3,10,7,.55); opacity:0; transition:opacity .2s; cursor:pointer; font-weight:800; font-size:17px; text-align:center;}
+.trailer-cta .play-circle{width:64px; height:64px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 8px 30px rgba(47,158,107,.5);}
+.detail-hero:hover .trailer-cta, .detail-hero:focus .trailer-cta, .detail-hero:focus-within .trailer-cta{opacity:1;}
+@media (hover:none){
+  .trailer-cta{opacity:1; background:linear-gradient(transparent 50%, rgba(3,10,7,.75)); justify-content:flex-end; flex-direction:row; padding-bottom:14px; font-size:14px;}
+  .trailer-cta .play-circle{width:42px; height:42px; font-size:18px;}
+}
+.detail-trailer-frame{width:100%; aspect-ratio:16/8; border:0; display:block; background:#000;}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:900px){
   :root{--sidebar-w:0px;}
@@ -238,6 +259,7 @@ html.kbd .star:focus{transform:scale(1.25);}
 <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
+<div id="splash"><img src="logo.png" alt=""></div>
 
 <div class="app">
   <!-- SIDEBAR / BOTTOM NAV -->
@@ -268,6 +290,8 @@ html.kbd .star:focus{transform:scale(1.25);}
     <!-- HOME -->
     <div id="view-home" class="view-panel">
       <div class="hero" id="hero"></div>
+      <div class="section" id="sec-continue" style="display:none;"><div class="section-title">Продолжить просмотр</div><div class="shelf" id="shelf-continue"></div></div>
+      <div class="section" id="sec-recent" style="display:none;"><div class="section-title">Вы недавно смотрели</div><div class="shelf" id="shelf-recent"></div></div>
       <div class="section"><div class="section-title">На основе ваших интересов</div><div class="shelf" id="shelf-recs"></div></div>
       <div class="section"><div class="section-title">Популярное</div><div class="shelf" id="shelf-popular"></div></div>
       <div class="section"><div class="section-title">Новинки</div><div class="shelf" id="shelf-new"></div></div>
@@ -357,7 +381,7 @@ html.kbd .star:focus{transform:scale(1.25);}
 <script src="tvnav.js"></script>
 <script type="module">
 import {
-  auth, db, ref, get, set, remove, onAuthStateChanged, signOut,
+  auth, db, ref, get, set, update, remove, onAuthStateChanged, signOut,
   GENRES, toEmbedUrl, formatTime, TMDB_KEY
 } from "./firebase-config.js";
 
@@ -382,12 +406,19 @@ function castHtml(cast){
     </div>`).join("") + `</div>`;
 }
 async function loadTmdbExtras(id, t){
-  const trailerBtn = key => { const b = $("#detail-trailer"); if (!b || !key) return; b.style.display = ""; b.onclick = () => openTrailer(key); };
+  const trailerBtn = key => {
+    const b = $("#detail-trailer"); if (!b || !key) return;
+    curTrailerKey = key; b.style.display = ""; b.onclick = startInlineTrailer;
+    const cta = $("#trailer-cta"), hero = $("#detail-hero");
+    if (cta) cta.style.display = "flex";
+    if (hero) { hero.tabIndex = 0; hero.classList.add("focusable"); hero.onclick = startInlineTrailer; }
+  };
   trailerBtn(t.trailer);
   if (!t.tmdbId) return;
   try {
     const d = tmdbCache[id] || (tmdbCache[id] = await tmdbGet(`/${tmdbTypeOf(t)}/${t.tmdbId}`, { append_to_response: "credits,videos", include_video_language: "ru,en" }));
     if ($("#detail-modal").dataset.id !== id) return;
+    if (d.backdrop_path && !t.backdrop) { bdCache[id] = d.backdrop_path; saveBd(); const im = $("#detail-bd"); if (im) im.src = BD_BASE + d.backdrop_path; }
     if (!t.trailer) {
       const yt = (d.videos?.results || []).filter(v => v.site === "YouTube");
       trailerBtn((yt.find(v => v.type === "Trailer") || yt.find(v => v.type === "Teaser"))?.key);
@@ -400,6 +431,29 @@ async function loadTmdbExtras(id, t){
     }
   } catch (e) { console.warn("TMDB:", e); }
 }
+
+// ---------- ЗАДНИК (TMDB) И ТРЕЙЛЕР В ТОМ ЖЕ ОКНЕ ----------
+let curTrailerKey = null;
+const BD_BASE = "https://image.tmdb.org/t/p/w1280";
+let bdCache = {}; try { bdCache = JSON.parse(localStorage.getItem("akur_bd_v1") || "{}"); } catch (e) {}
+const saveBd = () => { try { localStorage.setItem("akur_bd_v1", JSON.stringify(bdCache)); } catch (e) {} };
+const bdBusy = new Set();
+function bdUrl(id, t){ return t.backdrop || (bdCache[id] ? BD_BASE + bdCache[id] : ""); }
+async function ensureBackdrop(id, t, cb){
+  if (!t.tmdbId || bdBusy.has(id) || bdUrl(id, t)) return;
+  bdBusy.add(id);
+  try {
+    const d = await tmdbGet(`/${tmdbTypeOf(t)}/${t.tmdbId}`);
+    if (d.backdrop_path) { bdCache[id] = d.backdrop_path; saveBd(); if (cb) cb(BD_BASE + d.backdrop_path); }
+  } catch (e) {}
+}
+function startInlineTrailer(){
+  const hero = $("#detail-hero"); if (!hero || !curTrailerKey) return;
+  hero.onclick = null; hero.classList.remove("focusable"); hero.removeAttribute("tabindex");
+  hero.innerHTML = `<iframe class="detail-trailer-frame" src="https://www.youtube.com/embed/${curTrailerKey}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+  hero.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
 function openTrailer(key){
   currentPlaying = null;
   $("#next-ep-btn").style.display = "none";
@@ -454,26 +508,33 @@ let userRatings = {}, userWatchlist = {}, userNotInterested = {}, userHistory = 
 let heroList = [], heroIndex = 0, heroTimer = null;
 let pendingRateId = null;
 let currentPlaying = null; // {titleId, seasonId, episodeId}
+let restLoaded = false, restP = Promise.resolve();
+const CACHE_KEY = "akur_cache_v2";
+function loadCache(){ try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch (e) { return null; } }
+function saveCache(){
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ titles, studios, actors, seasons, episodes })); }
+  catch (e) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ titles, studios, actors })); } catch (e2) {} }
+}
 let ctxTargetId = null;
 
 // ================= AUTH =================
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { window.location.href = "login.html"; return; }
+  if (!user) { try { localStorage.removeItem("akur_in"); } catch (e) {} window.location.href = "login.html"; return; }
   currentUser = user;
   isAnon = user.isAnonymous;
+  try { localStorage.setItem("akur_in", "1"); } catch (e) {}
+  const dataP = loadData();   // каталог грузится параллельно с данными пользователя
   if (!isAnon) {
     $("#user-name").textContent = user.email.split("@")[0];
     $("#user-sub").textContent = "Мой аккаунт";
     $("#user-avatar").textContent = user.email[0].toUpperCase();
-    const adminSnap = await get(ref(db, `users/${user.uid}/isAdmin`));
+    const u = `users/${user.uid}`;
+    const [adminSnap, rSnap, wSnap, nSnap, hSnap] = await Promise.all([
+      get(ref(db, `${u}/isAdmin`)), get(ref(db, `${u}/ratings`)), get(ref(db, `${u}/watchlist`)),
+      get(ref(db, `${u}/notInterested`)), get(ref(db, `${u}/history`)),
+    ]);
     isAdmin = adminSnap.val() === true;
     $("#admin-link").style.display = isAdmin ? "flex" : "none";
-    const [rSnap, wSnap, nSnap, hSnap] = await Promise.all([
-      get(ref(db, `users/${user.uid}/ratings`)),
-      get(ref(db, `users/${user.uid}/watchlist`)),
-      get(ref(db, `users/${user.uid}/notInterested`)),
-      get(ref(db, `users/${user.uid}/history`)),
-    ]);
     userRatings = rSnap.val() || {};
     userWatchlist = wSnap.val() || {};
     userNotInterested = nSnap.val() || {};
@@ -483,7 +544,7 @@ onAuthStateChanged(auth, async (user) => {
     $("#user-sub").textContent = "Войти в аккаунт";
     $("#user-avatar").textContent = "?";
   }
-  await loadData();
+  await dataP;
   renderAll();
 });
 
@@ -495,15 +556,16 @@ $("#admin-link").addEventListener("click", () => window.location.href = "admin.h
 
 // ================= DATA =================
 async function loadData(){
-  const [stSnap, acSnap, tiSnap, seSnap, epSnap] = await Promise.all([
-    get(ref(db, "studios")), get(ref(db, "actors")), get(ref(db, "titles")),
-    get(ref(db, "seasons")), get(ref(db, "episodes"))
-  ]);
+  // сезоны и серии тяжёлые — грузим в фоне, каталог показываем сразу
+  restP = Promise.all([get(ref(db, "seasons")), get(ref(db, "episodes"))]).then(([se, ep]) => {
+    seasons = se.val() || {}; episodes = ep.val() || {}; restLoaded = true; saveCache();
+    renderHistory();
+  }).catch(() => {});
+  const [stSnap, acSnap, tiSnap] = await Promise.all([get(ref(db, "studios")), get(ref(db, "actors")), get(ref(db, "titles"))]);
   studios = stSnap.val() || {};
   actors = acSnap.val() || {};
   titles = tiSnap.val() || {};
-  seasons = seSnap.val() || {};
-  episodes = epSnap.val() || {};
+  saveCache();
 }
 
 function getGenres(t){ return t.type === "movie" ? [t.genre] : (t.genres || []); }
@@ -515,6 +577,7 @@ function visibleTitles(){
 // ================= RENDER ALL =================
 function renderAll(){
   renderHero();
+  renderHistory();
   renderRecs();
   renderPopular();
   renderNew();
@@ -534,7 +597,9 @@ function renderHero(){
   all.forEach(([id, t], i) => {
     const slide = document.createElement("div");
     slide.className = "hero-slide" + (i===0 ? " active" : "");
-    slide.style.backgroundImage = `url('${t.poster}')`;
+    const bd0 = bdUrl(id, t);
+    slide.style.backgroundImage = `url('${bd0 || t.poster}')`;
+    if (!bd0) ensureBackdrop(id, t, u => { slide.style.backgroundImage = `url('${u}')`; });
     hero.appendChild(slide);
   });
   const [id, t] = all[0];
@@ -589,13 +654,14 @@ function bindHeroButtons(){
 }
 
 // ---------- SHELVES ----------
-function cardHtml(id, t){
+function cardHtml(id, t, x){
   const bookmarked = !!userWatchlist[id];
   const rating = getRating(t);
   return `<div class="card focusable" tabindex="0" data-id="${id}">
     ${t.forKids ? '<span class="kids-tag">Детям</span>' : ''}
     ${bookmarked ? '<span class="bookmark-tag">🔖</span>' : ''}
     <img class="poster" src="${t.poster}" loading="lazy" alt="">
+    ${x && x.label ? `<div class="card-resume">▶ ${esc(x.label)}</div>` : ""}${x && x.pct ? `<div class="card-progress"><i style="width:${Math.round(x.pct*100)}%"></i></div>` : ""}
     <div class="card-info">
       <div class="card-title">${esc(t.title)}</div>
       <div class="card-meta"><span class="rating">★ ${rating ? rating.toFixed(1) : "—"}</span><span>${t.year || ""}</span></div>
@@ -742,7 +808,7 @@ function openDetails(id, autoplay){
 
   let body = `
     <button class="detail-close" id="detail-close">✕</button>
-    <img class="detail-backdrop" src="${t.poster}" alt="">
+    <div class="detail-hero" id="detail-hero"><img class="detail-backdrop" id="detail-bd" src="${bdUrl(id, t) || t.poster}" alt=""><div class="trailer-cta" id="trailer-cta"><span class="play-circle">▶</span><span>Воспроизвести трейлер?</span></div></div>
     <div class="detail-body">
       <div class="detail-title">${esc(t.title)}</div>
       <div class="detail-meta">
@@ -764,6 +830,7 @@ function openDetails(id, autoplay){
   $("#detail-modal").innerHTML = body;
   $("#detail-overlay").classList.add("show");
   $("#detail-modal").dataset.id = id;
+  curTrailerKey = null;
   $("#detail-close").onclick = closeDetails;
   loadTmdbExtras(id, t);
   $("#detail-bookmark").onclick = () => toggleWatchlist(id);
@@ -772,21 +839,24 @@ function openDetails(id, autoplay){
     if (editBtn) editBtn.onclick = () => { window.location.href = `admin.html?edit=movie-${id}`; };
   }
 
-  if (t.type === "movie") {
-    $("#detail-play").onclick = () => { closeDetails(); playMovie(id, t); };
-    if (autoplay) { closeDetails(); playMovie(id, t); }
-  } else {
-    $("#detail-play").onclick = () => renderSeasonPicker(id);
-    renderSeasonPicker(id, true);
-    if (autoplay) setTimeout(() => renderSeasonPicker(id), 0);
-  }
+  const rs = resumeInfo(id);
+  if (rs) $("#detail-play").innerHTML = `▶ Продолжить${rs.label ? " · " + esc(rs.label) : ""}`;
+  const startPlay = () => {
+    if (t.type === "movie") { closeDetails(); playMovie(id, t, rs ? rs.pos : 0); }
+    else if (rs) { closeDetails(); playEpisode(rs.episodeId, rs.seasonId, rs.pos); }
+    else renderSeasonPicker(id);
+  };
+  $("#detail-play").onclick = startPlay;
+  if (t.type !== "movie") renderSeasonPicker(id, true);
+  if (autoplay) setTimeout(startPlay, 0);
 }
-function closeDetails(){ $("#detail-overlay").classList.remove("show"); }
+function closeDetails(){ const f = $("#detail-hero iframe"); if (f) f.remove(); $("#detail-overlay").classList.remove("show"); }
 $("#detail-overlay").addEventListener("click", (e) => { if (e.target.id === "detail-overlay") closeDetails(); });
 
 function renderSeasonPicker(seriesId, silent){
   const box = $("#series-nav");
   if (!box) return;
+  if (!restLoaded) { box.innerHTML = `<p style="color:var(--muted); font-size:13px; margin-top:14px;">Загружаю серии…</p>`; restP.then(() => renderSeasonPicker(seriesId, silent)); return; }
   const seasonEntries = Object.entries(seasons).filter(([_,s]) => s.seriesId === seriesId).sort((a,b)=>a[1].seasonNumber-b[1].seasonNumber);
   if (!seasonEntries.length){ box.innerHTML = `<p style="color:var(--muted); font-size:13.5px; margin-top:14px;">Сезоны пока не добавлены</p>`; return; }
   box.innerHTML = `
@@ -822,23 +892,104 @@ function requireAuth(){
 $("#gate-close").addEventListener("click", () => $("#gate-overlay").classList.remove("show"));
 $("#gate-overlay").addEventListener("click", (e) => { if (e.target.id==="gate-overlay") $("#gate-overlay").classList.remove("show"); });
 
-function playMovie(id, t){
+// ---------- ПРОДОЛЖИТЬ ПРОСМОТР / ИСТОРИЯ ----------
+function orderedEpisodes(seriesId){
+  const list = [];
+  Object.entries(seasons).filter(([_, se]) => se.seriesId === seriesId).sort((a, b) => a[1].seasonNumber - b[1].seasonNumber).forEach(([sid, se]) => {
+    Object.entries(episodes).filter(([_, e]) => e.seasonId === sid).sort((a, b) => a[1].episodeNumber - b[1].episodeNumber)
+      .forEach(([eid, ep]) => list.push({ id: eid, seasonId: sid, season: se, ep }));
+  });
+  return list;
+}
+function epDurSec(season, ep){
+  if (season && season.seasonType === "timeline" && ep.endTime > ep.startTime) return ep.endTime - ep.startTime;
+  return ep && ep.duration ? ep.duration * 60 : 0;
+}
+function resumeInfo(id){
+  const t = titles[id], h = userHistory[id];
+  if (isAnon || !t || !h) return null;
+  if (t.type === "movie") {
+    const dur = (t.duration || 0) * 60;
+    if (!h.pos || h.pos < 60 || h.done || (dur && h.pos >= dur * 0.92)) return null;
+    return { pos: Math.max(0, h.pos - 5), pct: dur ? Math.min(.98, h.pos / dur) : 0, label: formatTime(h.pos) };
+  }
+  if (!h.episodeId) return null;
+  const list = orderedEpisodes(id), i = list.findIndex(x => x.id === h.episodeId);
+  if (i < 0) return null;
+  const cur = list[i], dur = epDurSec(cur.season, cur.ep);
+  const done = h.done || (dur && (h.pos || 0) >= dur * 0.92);
+  if (done) {
+    const nx = list[i + 1]; if (!nx) return null;
+    return { episodeId: nx.id, seasonId: nx.seasonId, pos: 0, pct: 0, label: `С${nx.season.seasonNumber} Е${nx.ep.episodeNumber}` };
+  }
+  return { episodeId: cur.id, seasonId: cur.seasonId, pos: Math.max(0, (h.pos || 0) - 5), pct: dur ? Math.min(.98, (h.pos || 0) / dur) : 0, label: `С${cur.season.seasonNumber} Е${cur.ep.episodeNumber}` };
+}
+function histShelf(secId, shelfId, entries){
+  const sec = $(secId), el = $(shelfId);
+  if (!entries.length) { sec.style.display = "none"; el.innerHTML = ""; return; }
+  sec.style.display = ""; el.innerHTML = entries.map(([id, t, x]) => cardHtml(id, t, x)).join(""); bindCards(el);
+}
+function renderHistory(){
+  if (isAnon) { histShelf("#sec-continue", "#shelf-continue", []); histShelf("#sec-recent", "#shelf-recent", []); return; }
+  const hist = Object.entries(userHistory).filter(([id]) => titles[id] && !userNotInterested[id]).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+  const cont = [], ids = new Set();
+  hist.forEach(([id]) => { const r = resumeInfo(id); if (r) { cont.push([id, titles[id], { pct: r.pct, label: r.label }]); ids.add(id); } });
+  histShelf("#sec-continue", "#shelf-continue", cont.slice(0, 16));
+  histShelf("#sec-recent", "#shelf-recent", hist.filter(([id]) => !ids.has(id)).slice(0, 16).map(([id]) => [id, titles[id]]));
+}
+
+// трекер: VK-плеер не сообщает время, поэтому позицию считаем по времени, пока плеер открыт и вкладка видна (≈)
+let tracker = null;
+function startTracker(info){
+  stopTracker();
+  tracker = { ...info, acc: 0, last: Date.now(), visible: !document.hidden, timer: setInterval(() => saveProgress(), 20000) };
+}
+function trackerPos(){
+  if (!tracker) return 0;
+  const now = Date.now();
+  if (tracker.visible) tracker.acc += now - tracker.last;
+  tracker.last = now;
+  return Math.floor(tracker.base + tracker.acc / 1000);
+}
+function saveProgress(){
+  if (!tracker || isAnon) return;
+  let pos = trackerPos();
+  if (tracker.durSec) pos = Math.min(pos, tracker.durSec);
+  const done = tracker.durSec ? pos >= tracker.durSec * 0.92 : false;
+  const h = userHistory[tracker.titleId]; if (!h) return;
+  h.pos = pos; h.done = done; h.timestamp = Date.now();
+  update(ref(db, `users/${currentUser.uid}/history/${tracker.titleId}`), { pos, done, timestamp: h.timestamp }).catch(() => {});
+}
+function stopTracker(){
+  if (!tracker) return;
+  saveProgress(); clearInterval(tracker.timer); tracker = null;
+}
+document.addEventListener("visibilitychange", () => {
+  if (!tracker) return;
+  const now = Date.now();
+  if (document.hidden) { if (tracker.visible) tracker.acc += now - tracker.last; tracker.visible = false; saveProgress(); }
+  else { tracker.last = now; tracker.visible = true; }
+});
+addEventListener("pagehide", () => { if (tracker) saveProgress(); });
+
+function playMovie(id, t, startSec){
   if (!requireAuth()) return;
   currentPlaying = { titleId: id, seasonId: null, episodeId: null };
-  $("#player-iframe").src = toEmbedUrl(t.videoUrl);
+  $("#player-iframe").src = toEmbedUrl(t.videoUrl, startSec || 0);
   $("#next-ep-btn").style.display = "none";
   $("#player-overlay").classList.add("show");
-  recordHistory(id, getGenres(t));
+  recordHistory(id, getGenres(t), { seasonId: null, episodeId: null, pos: startSec || 0, done: false });
+  startTracker({ titleId: id, base: startSec || 0, durSec: (t.duration || 0) * 60 });
 }
-function playEpisode(episodeId, seasonId){
+function playEpisode(episodeId, seasonId, startSec){
   if (!requireAuth()) return;
   const ep = episodes[episodeId];
   const season = seasons[seasonId];
   const t = titles[season.seriesId];
   currentPlaying = { titleId: season.seriesId, seasonId, episodeId };
   let src;
-  if (season.seasonType === "timeline") src = toEmbedUrl(season.videoUrl, ep.startTime);
-  else src = toEmbedUrl(ep.videoUrl);
+  if (season.seasonType === "timeline") src = toEmbedUrl(season.videoUrl, ep.startTime + (startSec || 0));
+  else src = toEmbedUrl(ep.videoUrl, startSec || 0);
   $("#player-iframe").src = src;
   const eps = Object.entries(episodes).filter(([_,e]) => e.seasonId === seasonId).sort((a,b)=>a[1].episodeNumber-b[1].episodeNumber);
   const idx = eps.findIndex(([eid]) => eid === episodeId);
@@ -846,10 +997,12 @@ function playEpisode(episodeId, seasonId){
   $("#next-ep-btn").style.display = next ? "inline-flex" : "none";
   $("#next-ep-btn").onclick = () => next && playEpisode(next[0], seasonId);
   $("#player-overlay").classList.add("show");
-  recordHistory(season.seriesId, getGenres(t));
+  recordHistory(season.seriesId, getGenres(t), { seasonId, episodeId, pos: startSec || 0, done: false });
+  startTracker({ titleId: season.seriesId, base: startSec || 0, durSec: epDurSec(season, ep) });
 }
 $("#close-player-btn").addEventListener("click", closePlayer);
 function closePlayer(){
+  stopTracker();
   $("#player-overlay").classList.remove("show");
   $("#player-iframe").src = "";
   if (currentPlaying && !isAnon){
@@ -857,10 +1010,11 @@ function closePlayer(){
     if (!userRatings[id]) promptRating(id);
   }
   currentPlaying = null;
+  renderHistory();
 }
-async function recordHistory(titleId, genres){
+async function recordHistory(titleId, genres, extra){
   if (isAnon) return;
-  userHistory[titleId] = { timestamp: Date.now(), genres };
+  userHistory[titleId] = { ...(userHistory[titleId] || {}), timestamp: Date.now(), genres, ...(extra || {}) };
   await set(ref(db, `users/${currentUser.uid}/history/${titleId}`), userHistory[titleId]);
 }
 
@@ -978,6 +1132,16 @@ $("#focus-video-btn").onclick = () => {
   const f = $("#player-iframe"); f.focus(); try { f.contentWindow.focus(); } catch (x) {}
   showToast("Теперь пульт управляет плеером видео. «Назад» закроет его");
 };
+
+// ================= МГНОВЕННЫЙ СТАРТ: показываем каталог из кэша, пока грузится свежий =================
+try {
+  const c = loadCache();
+  if (c && c.titles && localStorage.getItem("akur_in") === "1") {
+    studios = c.studios || {}; actors = c.actors || {}; titles = c.titles || {};
+    seasons = c.seasons || {}; episodes = c.episodes || {}; restLoaded = !!c.seasons;
+    renderAll();
+  }
+} catch (e) { console.warn("cache", e); }
 </script>
 </body>
 </html>
