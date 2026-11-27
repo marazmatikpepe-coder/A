@@ -57,7 +57,7 @@ button{font-family:inherit;}
 .user-name{font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .user-sub{font-size:11px; color:var(--muted);}
 
-.main{flex:1; margin-left:var(--sidebar-w); min-height:100vh; padding-bottom:60px;}
+.main{flex:1; min-width:0; margin-left:var(--sidebar-w); min-height:100vh; padding-bottom:60px;}
 .topbar-mobile{display:none;}
 
 /* ---------- HERO ---------- */
@@ -234,6 +234,9 @@ html.kbd .star:focus{transform:scale(1.25);}
 .season-chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
 .season-chip:hover{border-color:var(--accent2);}
 
+#player-now{color:#fff; font-weight:700; font-size:14px; padding:9px 14px; background:rgba(7,18,13,.75); border:1px solid var(--line); border-radius:10px; margin-right:auto;}
+#player-now:empty{display:none;}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:900px){
   :root{--sidebar-w:0px;}
@@ -337,6 +340,7 @@ html.kbd .star:focus{transform:scale(1.25);}
 <!-- PLAYER -->
 <div class="player-overlay" id="player-overlay">
   <div class="player-controls">
+    <span id="player-now"></span>
     <button id="next-ep-btn" style="display:none;">Следующая серия ▶</button>
     <button id="focus-video-btn">🎮 Управлять видео</button>
     <button id="close-player-btn">✕ Закрыть</button>
@@ -944,31 +948,84 @@ function renderHistory(){
   histShelf("#sec-recent", "#shelf-recent", hist.filter(([id]) => !ids.has(id)).slice(0, 16).map(([id]) => [id, titles[id]]));
 }
 
-// трекер: VK-плеер не сообщает время, поэтому позицию считаем по времени, пока плеер открыт и вкладка видна (≈)
-let tracker = null;
+// ---------- ТРЕКЕР ПОЗИЦИИ ----------
+// Точное время берём из плеера VK (js_api, событие timeupdate). Если VK его не присылает — считаем по часам, пока плеер открыт (≈).
+let tracker = null, vkPlayer = null, vkApiP = null;
+const withApi = url => (/video_ext\.php/.test(url) && !/js_api=/.test(url)) ? url + "&js_api=1" : url;
+function ensureVkApi(){
+  if (window.VK && VK.VideoPlayer) return Promise.resolve(true);
+  if (!vkApiP) vkApiP = new Promise(res => {
+    const s = document.createElement("script"); s.src = "https://vk.com/js/api/videoplayer.js";
+    s.onload = () => res(!!(window.VK && VK.VideoPlayer)); s.onerror = () => res(false);
+    document.head.appendChild(s); setTimeout(() => res(!!(window.VK && VK.VideoPlayer)), 6000);
+  });
+  return vkApiP;
+}
+async function attachVk(){
+  if (!tracker) return;
+  if (!(await ensureVkApi()) || !tracker) return;
+  try {
+    vkPlayer = VK.VideoPlayer($("#player-iframe"));
+    vkPlayer.on("timeupdate", st => {
+      if (!tracker) return;
+      const t = typeof st === "number" ? st : (st && (st.time ?? st.currentTime ?? st.seconds ?? st.position));
+      if (Number.isFinite(+t)) { tracker.vk = +t; tracker.vkAt = Date.now(); }
+    });
+  } catch (e) { vkPlayer = null; }
+}
+$("#player-iframe").addEventListener("load", attachVk);
+
 function startTracker(info){
   stopTracker();
-  tracker = { ...info, acc: 0, last: Date.now(), visible: !document.hidden, timer: setInterval(() => saveProgress(), 20000) };
+  tracker = { ...info, acc: 0, last: Date.now(), visible: !document.hidden, vk: null, ticks: 0 };
+  tracker.timer = setInterval(() => { refreshNow(); if (++tracker.ticks % 7 === 0) saveProgress(); }, 1500);
 }
-function trackerPos(){
+function curAbs(){
   if (!tracker) return 0;
+  if (tracker.vk != null) return tracker.vk;            // точное время из VK
   const now = Date.now();
   if (tracker.visible) tracker.acc += now - tracker.last;
   tracker.last = now;
-  return Math.floor(tracker.base + tracker.acc / 1000);
+  return tracker.base + tracker.acc / 1000;               // запасной вариант: по часам
+}
+// где мы сейчас: для «таймкодного» сезона (одно видео) определяем серию по времени в файле
+function locate(tr, abs){
+  if (tr.mode === "timeline" && tr.seasonEps.length) {
+    const L = tr.seasonEps, last = L[L.length - 1];
+    let hit = L.find(x => abs >= x.ep.startTime && abs < x.ep.endTime);
+    if (!hit) hit = abs >= last.ep.endTime ? last : L[0];
+    const dur = hit.ep.endTime - hit.ep.startTime;
+    const pos = Math.max(0, Math.min(abs - hit.ep.startTime, dur));
+    return { episodeId: hit.id, seasonId: hit.seasonId, pos, done: dur ? pos >= dur * 0.92 : false };
+  }
+  let pos = Math.max(0, abs);
+  if (tr.durSec) pos = Math.min(pos, tr.durSec);
+  return { episodeId: tr.episodeId || null, seasonId: tr.seasonId || null, pos, done: tr.durSec ? pos >= tr.durSec * 0.92 : false };
+}
+function refreshNow(){
+  const nowEl = $("#player-now"), nx = $("#next-ep-btn");
+  if (!tracker || tracker.mode === "movie") { if (nowEl) nowEl.textContent = ""; return; }
+  const loc = locate(tracker, curAbs());
+  const i = tracker.flat.findIndex(x => x.id === loc.episodeId);
+  if (i < 0) return;
+  const cur = tracker.flat[i], next = tracker.flat[i + 1];
+  nowEl.textContent = `С${cur.season.seasonNumber} Е${cur.ep.episodeNumber} · ${cur.ep.title || "Серия " + cur.ep.episodeNumber}`;
+  if (currentPlaying) { currentPlaying.episodeId = cur.id; currentPlaying.seasonId = cur.seasonId; }
+  nx.style.display = next ? "inline-flex" : "none";
+  nx.onclick = () => next && playEpisode(next.id, next.seasonId);
 }
 function saveProgress(){
   if (!tracker || isAnon) return;
-  let pos = trackerPos();
-  if (tracker.durSec) pos = Math.min(pos, tracker.durSec);
-  const done = tracker.durSec ? pos >= tracker.durSec * 0.92 : false;
-  const h = userHistory[tracker.titleId]; if (!h) return;
-  h.pos = pos; h.done = done; h.timestamp = Date.now();
-  update(ref(db, `users/${currentUser.uid}/history/${tracker.titleId}`), { pos, done, timestamp: h.timestamp }).catch(() => {});
+  const loc = locate(tracker, curAbs());
+  const h = userHistory[tracker.titleId] || (userHistory[tracker.titleId] = {});
+  const patch = { seasonId: loc.seasonId, episodeId: loc.episodeId, pos: Math.floor(loc.pos), done: loc.done, timestamp: Date.now() };
+  Object.assign(h, patch);
+  update(ref(db, `users/${currentUser.uid}/history/${tracker.titleId}`), patch).catch(() => {});
 }
 function stopTracker(){
   if (!tracker) return;
-  saveProgress(); clearInterval(tracker.timer); tracker = null;
+  saveProgress(); clearInterval(tracker.timer); tracker = null; vkPlayer = null;
+  const n = $("#player-now"); if (n) n.textContent = "";
 }
 document.addEventListener("visibilitychange", () => {
   if (!tracker) return;
@@ -977,34 +1034,33 @@ document.addEventListener("visibilitychange", () => {
   else { tracker.last = now; tracker.visible = true; }
 });
 addEventListener("pagehide", () => { if (tracker) saveProgress(); });
+addEventListener("beforeunload", () => { if (tracker) saveProgress(); });
 
 function playMovie(id, t, startSec){
   if (!requireAuth()) return;
   currentPlaying = { titleId: id, seasonId: null, episodeId: null };
-  $("#player-iframe").src = toEmbedUrl(t.videoUrl, startSec || 0);
+  $("#player-iframe").src = withApi(toEmbedUrl(t.videoUrl, startSec || 0));
   $("#next-ep-btn").style.display = "none";
   $("#player-overlay").classList.add("show");
   recordHistory(id, getGenres(t), { seasonId: null, episodeId: null, pos: startSec || 0, done: false });
-  startTracker({ titleId: id, base: startSec || 0, durSec: (t.duration || 0) * 60 });
+  startTracker({ titleId: id, mode: "movie", base: startSec || 0, durSec: (t.duration || 0) * 60 });
 }
 function playEpisode(episodeId, seasonId, startSec){
   if (!requireAuth()) return;
-  const ep = episodes[episodeId];
-  const season = seasons[seasonId];
-  const t = titles[season.seriesId];
-  currentPlaying = { titleId: season.seriesId, seasonId, episodeId };
-  let src;
-  if (season.seasonType === "timeline") src = toEmbedUrl(season.videoUrl, ep.startTime + (startSec || 0));
-  else src = toEmbedUrl(ep.videoUrl, startSec || 0);
-  $("#player-iframe").src = src;
-  const eps = Object.entries(episodes).filter(([_,e]) => e.seasonId === seasonId).sort((a,b)=>a[1].episodeNumber-b[1].episodeNumber);
-  const idx = eps.findIndex(([eid]) => eid === episodeId);
-  const next = eps[idx+1];
-  $("#next-ep-btn").style.display = next ? "inline-flex" : "none";
-  $("#next-ep-btn").onclick = () => next && playEpisode(next[0], seasonId);
+  const ep = episodes[episodeId], season = seasons[seasonId];
+  if (!ep || !season) return;
+  const seriesId = season.seriesId, t = titles[seriesId];
+  currentPlaying = { titleId: seriesId, seasonId, episodeId };
+  const timeline = season.seasonType === "timeline";
+  const base = timeline ? ep.startTime + (startSec || 0) : (startSec || 0);
+  $("#player-iframe").src = withApi(toEmbedUrl(timeline ? season.videoUrl : ep.videoUrl, base));
+  const flat = orderedEpisodes(seriesId);
   $("#player-overlay").classList.add("show");
-  recordHistory(season.seriesId, getGenres(t), { seasonId, episodeId, pos: startSec || 0, done: false });
-  startTracker({ titleId: season.seriesId, base: startSec || 0, durSec: epDurSec(season, ep) });
+  recordHistory(seriesId, getGenres(t), { seasonId, episodeId, pos: startSec || 0, done: false });
+  startTracker({ titleId: seriesId, mode: timeline ? "timeline" : "episode", seasonId, episodeId, flat,
+    seasonEps: flat.filter(x => x.seasonId === seasonId).sort((a, b) => a.ep.startTime - b.ep.startTime),
+    base, durSec: epDurSec(season, ep) });
+  refreshNow();
 }
 $("#close-player-btn").addEventListener("click", closePlayer);
 function closePlayer(){
@@ -1125,7 +1181,12 @@ function goHome(){
   return false;
 }
 window.TVNAV.scope = () => { for (const sel of LAYERS) if (layerOpen(sel)) return $(sel); return document.body; };
-window.TVNAV.back = () => { if (!closeTop()) goHome(); };
+function menuBack(){
+  const a = document.activeElement;
+  if (!(a && a.closest && a.closest(".sidebar"))) { const n = $(".nav-item.active") || $(".nav-item"); if (n) { n.focus({ preventScroll: true }); return true; } }
+  return goHome();
+}
+window.TVNAV.back = () => { if (!closeTop()) menuBack(); };
 window.TVNAV.longPress = el => {
   const c = el.closest(".card"); if (!c) return;
   const r = c.getBoundingClientRect();
@@ -1133,7 +1194,7 @@ window.TVNAV.longPress = el => {
 };
 // кнопка «Назад» на ТВ часто работает как history.back(): перехватываем и закрываем верхний слой
 history.replaceState({ r: 1 }, ""); history.pushState({ s: 1 }, "");
-addEventListener("popstate", () => { if (closeTop() || goHome()) history.pushState({ s: 1 }, ""); });
+addEventListener("popstate", () => { if (closeTop() || menuBack()) history.pushState({ s: 1 }, ""); });
 document.addEventListener("focusin", e => { const s = e.target.closest && e.target.closest(".star"); if (s) highlightStars(Number(s.dataset.v)); });
 // плеер/трейлер в iframe любят забирать фокус, и тогда пульт «умирает» — возвращаем фокус на кнопки страницы
 let videoMode = false;

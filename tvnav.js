@@ -81,35 +81,38 @@
     function reg(el){ var r = el.closest('[data-tv-region]'); return r ? r.getAttribute('data-tv-region') : ''; }
     var curReg = reg(cur);
 
-    function scan(sameRowOnly){
+    function scan(sameRowOnly, regionOnly){
       var best = null, bs = Infinity;
       list.forEach(function (el) {
         if (el === cur || cur.contains(el) || el.contains(cur)) return;
         var r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, p, perp;
-        if (dir === 'right') { if (cx - ax <= 2) return; p = Math.max(0, r.left - a.right) + 0.1 * (cx - ax); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
-        else if (dir === 'left') { if (cx - ax >= -2) return; p = Math.max(0, a.left - r.right) + 0.1 * (ax - cx); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
-        else if (dir === 'down') { if (cy - ay <= 2) return; p = Math.max(0, r.top - a.bottom) + 0.1 * (cy - ay); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
-        else { if (cy - ay >= -2) return; p = Math.max(0, a.top - r.bottom) + 0.1 * (ay - cy); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
+        if (dir === 'right') { if (cx - ax <= 2 || r.left < ax) return; p = Math.max(0, r.left - a.right) + 0.1 * (cx - ax); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
+        else if (dir === 'left') { if (cx - ax >= -2 || r.right > ax) return; p = Math.max(0, a.left - r.right) + 0.1 * (ax - cx); perp = gap(a.top, a.bottom, r.top, r.bottom) * 3 + 0.2 * Math.abs(cy - ay); }
+        else if (dir === 'down') { if (cy - ay <= 2 || r.top < ay) return; p = Math.max(0, r.top - a.bottom) + 0.1 * (cy - ay); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
+        else { if (cy - ay >= -2 || r.bottom > ay) return; p = Math.max(0, a.top - r.bottom) + 0.1 * (ay - cy); perp = gap(a.left, a.right, r.left, r.right) * 3 + 0.2 * Math.abs(cx - ax); }
         var overlap = vertical ? gap(a.left, a.right, r.left, r.right) === 0 : gap(a.top, a.bottom, r.top, r.bottom) === 0;
         if (sameRowOnly && !overlap) return;
+        if (regionOnly && reg(el) === curReg) return;
         if (vertical && !overlap && reg(el) !== curReg) return;
         var score = p + perp;
         if (score < bs) { bs = score; best = el; }
       });
       return best;
     }
-    var best = scan(!vertical);              // по горизонтали сначала ищем в той же ленте/строке
-    if (!best && !vertical) {
-      var sib = list.filter(function (el) { return el.parentElement === cur.parentElement; });
-      if (sib.length > 1 && dir === 'right') {  // бесконечная лента: после последнего — первый
-        sib.sort(function (x, y) { return x.getBoundingClientRect().left - y.getBoundingClientRect().left; });
-        best = sib[0];
-      } else best = scan(false);               // например влево из первой карточки — в боковое меню
-      if (!best && sib.length > 1) {           // влево без меню — тоже по кругу
-        sib.sort(function (x, y) { return x.getBoundingClientRect().left - y.getBoundingClientRect().left; });
-        best = sib[sib.length - 1];
+    if (!vertical) {
+      // бесконечные ленты: в прокручиваемой строке идём строго по порядку карточек и замыкаем круг
+      var row = cur.parentElement;
+      if (row && row.scrollWidth > row.clientWidth + 2) {
+        var sibs = list.filter(function (el) { return el.parentElement === row; }), i = sibs.indexOf(cur);
+        if (i >= 0 && sibs.length > 1) {
+          var nxt = dir === 'right' ? sibs[i + 1] : sibs[i - 1];
+          if (!nxt) nxt = dir === 'right' ? sibs[0] : sibs[sibs.length - 1];
+          focusEl(nxt, dir); return;
+        }
       }
     }
+    var best = scan(!vertical);
+    if (!best && !vertical) best = scan(false, true);   // в другую область (меню ↔ контент) можно перейти и по диагонали
     if (!best && vertical) best = scan(false);
     if (best) focusEl(best, dir);
     else if (vertical) scrollBy({ top: dir === 'down' ? 240 : -240, behavior: 'smooth' });
