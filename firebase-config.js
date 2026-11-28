@@ -88,3 +88,8 @@ export function timeToSeconds(str) {
 
 // Публичный ключ TMDB v3 (для клиентских приложений)
 export const TMDB_KEY = "98cbd519b7ff20634b5c93328d5e77f3";
+
+// ===== Прокси для TMDB (если у вас TMDB медленный или заблокирован) =====
+// "" — напрямую, а при проблемах картинки сами пойдут через публичный wsrv.nl.
+// Свой прокси: развернуть tmdb-proxy-worker.js и вписать адрес, например "https://tmdb.myname.workers.dev"
+export const PROXY_URL = "";

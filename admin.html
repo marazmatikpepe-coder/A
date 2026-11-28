@@ -347,7 +347,7 @@ VK Video: https://vk.com/video-12345_67890
 <script type="module">
 import {
   auth, db, ref, get, set, push, update, remove, onAuthStateChanged,
-  GENRES, formatTime, timeToSeconds
+  GENRES, formatTime, timeToSeconds, PROXY_URL
 } from "./firebase-config.js";
 
 const $ = s => document.querySelector(s);
@@ -982,7 +982,7 @@ const TMDB_GENRE_MAP = {
 function isLatinName(s){ return /^[\x00-\x7F\s.'\-]+$/.test(s || ""); }
 
 async function tmdbFetch(path, params){
-  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  const url = new URL(PROXY_URL ? `${PROXY_URL}/3${path}` : `https://api.themoviedb.org/3${path}`);
   url.searchParams.set("api_key", TMDB_KEY);
   // По умолчанию используем русский язык для всех запросов
   if (!params.language && !url.searchParams.has('language')) {
